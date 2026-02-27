@@ -9,8 +9,6 @@ import {
 import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.6.0/firebase-messaging.js";
 
 // ── FCM VAPID key ──
-// Get from: Firebase Console → Project Settings → Cloud Messaging → Web Push certificates → Generate key pair
-// Replace the string below with your actual key
 const FCM_VAPID_KEY = "BIsaiVaW0Mj5TDpRL7wkxYIUEGn9_KPiogUeREeUGbbDgcFxXI8gw-1seOKLYNUE2qlqzhyXNz5Er1yDc6SvkOA";
 
 const firebaseConfig = {
@@ -22,9 +20,9 @@ const firebaseConfig = {
   appId: "1:1088021134661:web:ccfbe3efcb367a15b6122c",
 };
 
-const app      = initializeApp(firebaseConfig);
-const auth     = getAuth(app);
-const db       = getFirestore(app);
+const app       = initializeApp(firebaseConfig);
+const auth      = getAuth(app);
+const db        = getFirestore(app);
 const messaging = getMessaging(app);
 let currentUser = null;
 
@@ -105,7 +103,7 @@ onAuthStateChanged(auth, user => {
   loadAllLogs();
   registerFCMToken();
   recoverTimerSession();
-  initializeGradioChat();  // Initialize AI companion chat
+  initializeGradioChat();
 });
 $("btn-logout").addEventListener("click", async () => {
   await signOut(auth);
@@ -129,24 +127,20 @@ async function registerFCMToken() {
   const btn = $("btn-enable-notif");
 
   if (Notification.permission === "denied") {
-    // Blocked — show button that explains how to fix it
     btn.style.display = "flex";
     btn.title = "Notifications blocked — click for help";
     btn.addEventListener("click", () => {
       showToast("To enable: click the 🔒 lock in your address bar → Notifications → Allow, then refresh.", "error");
     }, { once: true });
   } else if (Notification.permission === "granted") {
-    // Already granted — try silently, but show button on failure so user can retry
     const ok = await _doRegisterToken(btn, true);
     if (!ok) btn.style.display = "flex";
   } else {
-    // Not yet asked — show button so user consciously enables it
     btn.style.display = "flex";
     btn.addEventListener("click", () => _doRegisterToken(btn, false), { once: true });
   }
 }
 
-// Returns true on success, false on failure
 async function _doRegisterToken(btn, silent) {
   const bellIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>`;
   if (btn && !silent) { btn.innerHTML = bellIcon + " Enabling..."; }
@@ -185,7 +179,6 @@ async function _doRegisterToken(btn, silent) {
       { token, createdAt: Date.now(), userAgent: navigator.userAgent.slice(0, 200) }
     );
 
-    // Clean up any old token-as-ID docs from previous versions
     const { getDocs, collection: col } = await import("https://www.gstatic.com/firebasejs/10.6.0/firebase-firestore.js");
     const oldTokensSnap = await getDocs(col(db, "users", currentUser.uid, "fcmTokens"));
     const deletePromises = oldTokensSnap.docs
@@ -198,7 +191,6 @@ async function _doRegisterToken(btn, silent) {
       { timezone }, { merge: true }
     );
 
-    // Show green "Notifications On" briefly then hide
     if (btn) {
       btn.style.display = "flex";
       btn.className = "dash-notif-btn enabled";
@@ -223,18 +215,14 @@ async function _doRegisterToken(btn, silent) {
       btn.style.display = "flex";
       btn.innerHTML = bellIcon + " Enable Notifications";
       btn.title = userMsg;
-      // Re-attach click so user can retry after fixing the blocker
       btn.onclick = () => _doRegisterToken(btn, false);
     }
     console.warn("StudyHaven: FCM registration failed:", err.message);
-    console.warn("→ If you see 'push service error', disable your ad blocker for studyhaven.github.io");
     if (!silent) showToast(userMsg, "error");
     return false;
   }
 }
 
-// ── Foreground message handler ──
-// When the app tab IS open, FCM won't show a system notification — we show our own alarm instead
 onMessage(messaging, payload => {
   const n = payload.notification || {};
   const d = payload.data || {};
@@ -273,6 +261,206 @@ initSubtabs("panel-time");
 initSubtabs("panel-tracker");
 
 // ════════════════════════════
+//  TEXT-TO-SPEECH (TTS) — Kokoro server-side via /gradio_api/call/tts
+//  Falls back to browser speechSynthesis if the server call fails.
+// ════════════════════════════
+
+// TTS state — persisted in localStorage
+let ttsEnabled = localStorage.getItem("haven_tts") === "true";
+
+// Track currently playing audio so we can stop it
+let ttsAudio = null;
+
+function stopSpeaking() {
+  // Stop server audio
+  if (ttsAudio) {
+    ttsAudio.pause();
+    ttsAudio.src = "";
+    ttsAudio = null;
+  }
+  // Stop browser fallback
+  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+}
+
+// ── Server-side TTS via Kokoro ──
+async function speakWithServer(text) {
+  try {
+    // POST to /tts — send the text, get back an event_id
+    const postRes = await fetch(`${HAVEN_SPACE}/gradio_api/call/tts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: [text] }),
+    });
+
+    if (!postRes.ok) throw new Error(`TTS POST failed: ${postRes.status}`);
+
+    const { event_id } = await postRes.json();
+    if (!event_id) throw new Error("No event_id from TTS");
+
+    // Poll the SSE stream for the completed audio
+    const streamRes = await fetch(`${HAVEN_SPACE}/gradio_api/call/tts/${event_id}`);
+    if (!streamRes.ok) throw new Error(`TTS stream failed: ${streamRes.status}`);
+
+    const reader  = streamRes.body.getReader();
+    const decoder = new TextDecoder();
+    let   buffer  = "";
+    let   audioUrl = null;
+
+    outer:
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const frames = buffer.split("\n\n");
+      buffer = frames.pop();
+
+      for (const frame of frames) {
+        if (!frame.trim()) continue;
+        const lines     = frame.split("\n");
+        const eventLine = lines.find(l => l.startsWith("event:"));
+        const dataLine  = lines.find(l => l.startsWith("data:"));
+        if (!eventLine || !dataLine) continue;
+
+        const eventType = eventLine.replace("event:", "").trim();
+        const dataStr   = dataLine.replace("data:", "").trim();
+
+        if (eventType === "complete") {
+          try {
+            const parsed = JSON.parse(dataStr);
+            // Gradio returns audio as { path, url } or a direct URL string
+            const audioData = Array.isArray(parsed) ? parsed[0] : parsed;
+            if (audioData && audioData.url) {
+              audioUrl = audioData.url;
+            } else if (typeof audioData === "string") {
+              audioUrl = audioData;
+            }
+          } catch(e) {
+            console.warn("TTS parse error:", e.message);
+          }
+          reader.cancel();
+          break outer;
+        }
+      }
+    }
+
+    if (!audioUrl) throw new Error("No audio URL returned from TTS");
+
+    // Play the audio
+    stopSpeaking();
+    ttsAudio = new Audio(audioUrl);
+    ttsAudio.volume = 1.0;
+    await ttsAudio.play();
+    return true; // success
+
+  } catch(err) {
+    console.warn("Server TTS failed, falling back to browser TTS:", err.message);
+    return false; // signal fallback needed
+  }
+}
+
+// ── Browser fallback TTS (used if server TTS fails) ──
+let ttsVoice = null;
+
+function loadTTSVoices() {
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices.length) return;
+  const preferred = [
+    "Samantha", "Karen", "Moira", "Tessa",
+    "Google UK English Female", "Google US English",
+    "Microsoft Aria Online (Natural)", "Microsoft Jenny Online (Natural)",
+  ];
+  for (const name of preferred) {
+    const v = voices.find(v => v.name === name);
+    if (v) { ttsVoice = v; break; }
+  }
+  if (!ttsVoice) {
+    ttsVoice = voices.find(v => v.lang.startsWith("en") && /female|woman/i.test(v.name))
+      || voices.find(v => v.lang.startsWith("en"))
+      || voices[0] || null;
+  }
+}
+window.speechSynthesis?.addEventListener("voiceschanged", loadTTSVoices);
+loadTTSVoices();
+
+function stripMarkdown(text) {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/`(.*?)`/g, "$1")
+    .replace(/#+\s/g, "")
+    .replace(/\n+/g, " ")
+    .trim();
+}
+
+function speakWithBrowser(text) {
+  if (!("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(stripMarkdown(text));
+  utt.rate = 0.95; utt.pitch = 1.05; utt.volume = 1.0;
+  if (ttsVoice) utt.voice = ttsVoice;
+  window.speechSynthesis.speak(utt);
+}
+
+// ── Main entry point called after AI responds ──
+async function speakText(text) {
+  if (!ttsEnabled || !text) return;
+  stopSpeaking();
+
+  // Try server-side Kokoro first, fall back to browser
+  const serverOk = await speakWithServer(text);
+  if (!serverOk) speakWithBrowser(text);
+}
+
+function updateTTSButton() {
+  const btn = $("btn-tts-toggle");
+  if (!btn) return;
+
+  if (ttsEnabled) {
+    btn.title = "Text-to-speech ON — click to turn off";
+    btn.setAttribute("aria-pressed", "true");
+    btn.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+      </svg>
+      <span>TTS On</span>`;
+    btn.style.background = "var(--sage)";
+    btn.style.color = "white";
+    btn.style.borderColor = "var(--sage)";
+  } else {
+    btn.title = "Text-to-speech OFF — click to turn on";
+    btn.setAttribute("aria-pressed", "false");
+    btn.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+      </svg>
+      <span>TTS Off</span>`;
+    btn.style.background = "white";
+    btn.style.color = "var(--muted)";
+    btn.style.borderColor = "#e2e2e2";
+  }
+}
+
+function toggleTTS() {
+  ttsEnabled = !ttsEnabled;
+  localStorage.setItem("haven_tts", ttsEnabled);
+
+  if (!ttsEnabled) {
+    stopSpeaking();
+    showToast("Text-to-speech off", "");
+  } else {
+    showToast("Text-to-speech on 🔊", "success");
+    // Speak a short demo so the user knows it's working
+    speakText("Text to speech is now on. I'll read Haven's responses aloud.");
+  }
+
+  updateTTSButton();
+}
+
+// Expose to HTML onclick (used in header button)
+window.toggleTTS = toggleTTS;
+
+// ════════════════════════════
 //  AI COMPANION — Gradio 6 /gradio_api/call/chat
 // ════════════════════════════
 
@@ -296,12 +484,11 @@ Example responses:
 - If user is sad: "It's okay to feel that way. Your feelings are valid. Would you like to talk more about what's been going on?"
 `;
 
-let chatHistory = [];   // [{ role, content, timestamp }]
+let chatHistory = [];
 let aiInFlight  = false;
 
 const chatHistoryRef = () => collection(db, "users", currentUser.uid, "aiChat");
 
-// Format a Unix ms timestamp as "HH:MM" — falls back to nowTime() if missing
 function formatTimestamp(ts) {
   if (!ts) return nowTime();
   return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -317,14 +504,13 @@ function cleanHistory(arr) {
   );
 }
 
-// ── Load history from Firebase (preserves timestamp field) ──
 async function loadChatHistoryFromFirebase() {
   try {
     const snap = await getDocs(query(chatHistoryRef(), orderBy("timestamp", "asc")));
     const raw = snap.docs.map(d => ({
       role:      d.data().role,
       content:   d.data().content,
-      timestamp: d.data().timestamp,   // ← keep original send time
+      timestamp: d.data().timestamp,
     }));
     chatHistory = cleanHistory(raw);
     console.log(`📚 Loaded ${chatHistory.length} valid messages from Firebase`);
@@ -334,7 +520,6 @@ async function loadChatHistoryFromFirebase() {
   }
 }
 
-// ── Save a single message — always record the real send time ──
 async function saveChatMessageToFirebase(role, content, timestamp) {
   try {
     await addDoc(chatHistoryRef(), { role, content, timestamp });
@@ -343,12 +528,40 @@ async function saveChatMessageToFirebase(role, content, timestamp) {
   }
 }
 
+async function clearChatHistory() {
+  const btn = $("btn-chat-clear");
+  if (btn) { btn.disabled = true; btn.textContent = "Clearing…"; }
+  try {
+    stopSpeaking(); // stop any TTS in progress
+    const snap = await getDocs(chatHistoryRef());
+    const deletes = snap.docs.map(d => deleteDoc(d.ref));
+    await Promise.all(deletes);
+    chatHistory = [];
+    renderChatHistoryUI();
+    showToast("Conversation cleared ✓", "success");
+  } catch(e) {
+    console.error("Clear chat error:", e);
+    showToast("Could not clear messages.", "error");
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "🗑️ Clear"; }
+  }
+}
+
 async function initializeGradioChat() {
   await loadChatHistoryFromFirebase();
   renderChatHistoryUI();
+
+  // Wire up buttons
+  const clearBtn = $("btn-chat-clear");
+  if (clearBtn) clearBtn.addEventListener("click", clearChatHistory);
+
+  const ttsBtn = $("btn-tts-toggle");
+  if (ttsBtn) ttsBtn.addEventListener("click", toggleTTS);
+
+  // Set initial TTS button state
+  updateTTSButton();
 }
 
-// ── Extract reply from any Gradio response shape ──
 function extractReply(parsed) {
   console.log("🔍 Raw complete data:", JSON.stringify(parsed));
 
@@ -403,7 +616,6 @@ async function sendMessageToGradio(userMessage) {
 
     const { event_id } = await postRes.json();
     if (!event_id) throw new Error("No event_id returned from Haven");
-    console.log("Haven event_id:", event_id);
 
     const streamRes = await fetch(`${HAVEN_SPACE}/gradio_api/call/chat/${event_id}`);
     if (!streamRes.ok) throw new Error(`SSE stream failed: HTTP ${streamRes.status}`);
@@ -465,7 +677,6 @@ async function sendMessageToGradio(userMessage) {
   }
 }
 
-// ── Append a bubble — accepts optional timestamp (Unix ms) ──
 function appendChatMessage(text, role, timestamp) {
   if (typeof text !== "string") return;
   const win = $("chat-window");
@@ -479,7 +690,6 @@ function appendChatMessage(text, role, timestamp) {
     .replace(/\n/g, "<br>");
   const t = document.createElement("span");
   t.className = "msg-time";
-  // Use original timestamp if provided, otherwise current time
   t.textContent = formatTimestamp(timestamp);
   wrap.appendChild(bub);
   wrap.appendChild(t);
@@ -487,7 +697,6 @@ function appendChatMessage(text, role, timestamp) {
   setTimeout(() => { win.scrollTop = win.scrollHeight; }, 50);
 }
 
-// ── Render full history — passes original timestamps through ──
 function renderChatHistoryUI() {
   const win = $("chat-window");
   if (!win) return;
@@ -510,7 +719,7 @@ function renderChatHistoryUI() {
       appendChatMessage(
         msg.content,
         msg.role === "assistant" ? "ai" : "user",
-        msg.timestamp   // ← original send time restored here
+        msg.timestamp
       );
     });
   }
@@ -520,7 +729,10 @@ function renderChatHistoryUI() {
 async function sendMessage(text) {
   if (!text.trim()) return;
 
-  const sendTime = Date.now();   // capture exact send time
+  // Stop any current TTS before sending
+  stopSpeaking();
+
+  const sendTime = Date.now();
   appendChatMessage(text, "user", sendTime);
   $("chat-input").value = "";
 
@@ -535,13 +747,16 @@ async function sendMessage(text) {
   setTimeout(() => { win.scrollTop = win.scrollHeight; }, 50);
 
   const aiResponse = await sendMessageToGradio(text);
-  const replyTime  = Date.now();   // capture reply arrival time
+  const replyTime  = Date.now();
 
   const typing = $("typing-bubble");
   if (typing) typing.remove();
 
   if (aiResponse) {
     appendChatMessage(aiResponse, "ai", replyTime);
+    // ── Speak the AI response if TTS is enabled ──
+    speakText(aiResponse);
+
     chatHistory.push({ role: "user",      content: text,       timestamp: sendTime });
     chatHistory.push({ role: "assistant", content: aiResponse, timestamp: replyTime });
     await saveChatMessageToFirebase("user",      text,       sendTime);
@@ -587,7 +802,6 @@ async function addTask() {
   const alarm    = $("tm-task-alarm").value;
   const priority = $("tm-task-priority").value;
 
-  // All three required
   if (!title && !deadline && !alarm) { showToast("Task name, deadline and alarm are all required.", "error"); return; }
   if (!title)    { showToast("Please enter a task title.", "error"); return; }
   if (!deadline) { showToast("Please set a deadline.", "error"); return; }
@@ -678,13 +892,11 @@ function renderTasks() {
     el.className = "tm-task-item" + (t.completed ? " done" : "");
     const dl = new Date(t.deadline + "T00:00:00").toLocaleDateString([], { month:"short", day:"numeric" });
 
-    // Alarm toggle — always shown for all tasks (including completed)
     const alarmHtml = `
       <button class="tm-icon-btn ${t.alarmEnabled?"alarm-on":"alarm-off"}" onclick="window.toggleTmAlarm('${t.id}')" title="${t.alarmEnabled?"Disable alarm":"Enable alarm"}">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22 5.72l-4.6-3.86-1.29 1.53 4.6 3.86L22 5.72zM7.88 3.39L6.6 1.86 2 5.71l1.29 1.53 4.59-3.85zM12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9-4.02-9-9-9zm0 16c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
       </button>`;
 
-    // Re-alarm popup — always shown for all tasks
     const reAlarmHtml = `
       <div class="task-actions-wrap">
         <button class="tm-icon-btn realarm" onclick="window.openReAlarm('${t.id}')" title="Change alarm time">
@@ -777,7 +989,6 @@ $("timer-h").addEventListener("input", updateRepeatHint);
 $("timer-m").addEventListener("input", updateRepeatHint);
 $("timer-s").addEventListener("input", updateRepeatHint);
 
-// Special emails that get randomized test sounds
 const SPECIAL_EMAILS = [
   "aa1305589@gmail.com",
   "styx.johnalex@gmail.com",
@@ -786,22 +997,17 @@ const SPECIAL_EMAILS = [
   "niggernigger@gmail.com"
 ];
 
-// Store currently playing audio to avoid duplicates
 let currentAudio = null;
 
 function getAlarmSoundPath() {
-  // Check if current user email is in the special list
   if (currentUser && currentUser.email && SPECIAL_EMAILS.includes(currentUser.email)) {
-    // Randomly select from test sounds 1-8
     const randomNum = Math.floor(Math.random() * 8) + 1;
     return `assets/audio/test/test (${randomNum}).mp3`;
   }
-  // Default alarm for other users
   return "assets/audio/alarm.mp3";
 }
 
 function playAlarmSound(loud = false) {
-  // Stop any currently playing audio
   if (currentAudio) {
     currentAudio.pause();
     currentAudio.currentTime = 0;
@@ -809,68 +1015,34 @@ function playAlarmSound(loud = false) {
   }
 
   try {
-    // For special emails, play audio file
-    if (currentUser && currentUser.email && SPECIAL_EMAILS.includes(currentUser.email)) {
-      const audioPath = getAlarmSoundPath();
-      currentAudio = new Audio(audioPath);
-      currentAudio.volume = loud ? 1.0 : 0.7;
-      
-      if (loud) {
-        // For alarms, loop and stop after 5 seconds
-        currentAudio.loop = true;
-        currentAudio.play().catch(e => {
-          console.warn("Audio playback failed:", e);
-          currentAudio = null;
-        });
-        setTimeout(() => { 
-          if (currentAudio) {
-            currentAudio.pause(); 
-            currentAudio = null;
-          }
-        }, 5000);
-      } else {
-        // For notifications, play once
-        currentAudio.play().catch(e => {
-          console.warn("Audio playback failed:", e);
-          currentAudio = null;
-        });
-      }
+    const audioPath = getAlarmSoundPath();
+    currentAudio = new Audio(audioPath);
+    currentAudio.volume = loud ? 1.0 : 0.7;
+
+    if (loud) {
+      currentAudio.loop = true;
+      currentAudio.play().catch(e => {
+        console.warn("Audio playback failed:", e);
+        currentAudio = null;
+      });
+      setTimeout(() => {
+        if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+      }, 5000);
     } else {
-      // Default: use generated tones for other users
-      const audioPath = getAlarmSoundPath();
-      currentAudio = new Audio(audioPath);
-      currentAudio.volume = loud ? 1.0 : 0.7;
-      
-      if (loud) {
-        currentAudio.loop = true;
-        currentAudio.play().catch(e => console.warn("Audio playback failed:", e));
-        setTimeout(() => { 
-          if (currentAudio) {
-            currentAudio.pause(); 
-            currentAudio = null;
-          }
-        }, 5000);
-      } else {
-        currentAudio.play().catch(e => console.warn("Audio playback failed:", e));
-      }
+      currentAudio.play().catch(e => {
+        console.warn("Audio playback failed:", e);
+        currentAudio = null;
+      });
     }
   } catch (e) {
     console.warn("Alarm sound error:", e);
   }
 }
 
-// Beep function disabled - MP3 only
-function playBeepFallback(loud = false) {
-  // Beeping tone disabled - only MP3 alarms
-  return;
-}
-
-// Keep old playBeep alias
 function playBeep() { playAlarmSound(false); }
 
 // ════════════════════════════
 //  TIMER FIRESTORE SYNC
-//  Saves endsAt timestamp so GitHub Actions can send a push when the tab is closed
 // ════════════════════════════
 const timerSessionRef = () =>
   doc(db, "users", currentUser.uid, "settings", "timerSession");
@@ -879,11 +1051,8 @@ async function saveTimerSession(endsAt, durationSecs, repeat) {
   if (!currentUser) return;
   try {
     await setDoc(timerSessionRef(), {
-      endsAt,        // Unix ms when timer should finish
-      durationSecs,  // full duration — needed to reschedule on repeat
-      repeat,
-      status: "running",
-      startedAt: Date.now(),
+      endsAt, durationSecs, repeat,
+      status: "running", startedAt: Date.now(),
     });
   } catch {}
 }
@@ -896,63 +1065,44 @@ async function cancelTimerSession() {
   hideTimerRecoveryBanner();
 }
 
-// ── Recover a running timer session after page refresh ──
 async function recoverTimerSession() {
-  if (!currentUser) { console.log("Timer recovery: no currentUser"); return; }
+  if (!currentUser) return;
   try {
-    console.log("Timer recovery: checking Firestore...");
     const snap = await getDoc(timerSessionRef());
-    if (!snap.exists()) { console.log("Timer recovery: no session doc found"); return; }
+    if (!snap.exists()) return;
     const session = snap.data();
-    console.log("Timer recovery: session =", JSON.stringify(session));
-    if (session.status !== "running") { console.log("Timer recovery: status is", session.status, "— skipping"); return; }
+    if (session.status !== "running") return;
 
     const remaining = Math.round((session.endsAt - Date.now()) / 1000);
-    console.log("Timer recovery: remaining =", remaining, "s");
 
     if (remaining <= 0) {
       if (session.repeat) {
-        // Timer expired while page was closed but repeat is on — start a fresh cycle
-        console.log("Timer recovery: expired with repeat on — starting fresh cycle");
         timerTotal = session.durationSecs;
         timerLeft  = timerTotal;
         $("timer-h").value = Math.floor(session.durationSecs / 3600);
         $("timer-m").value = Math.floor((session.durationSecs % 3600) / 60);
         $("timer-s").value = session.durationSecs % 60;
         $("timer-repeat").checked = true;
-        updateRepeatHint();
-        updateTimer();
+        updateRepeatHint(); updateTimer();
         showTimerRecoveryBanner(timerTotal, session.durationSecs, true);
         startTimer();
       } else {
-        console.log("Timer recovery: already expired, cancelling");
         await cancelTimerSession();
       }
       return;
     }
 
-    // Restore timer state
     timerTotal = session.durationSecs;
     timerLeft  = remaining;
-
-    // Populate H:M:S inputs to reflect the original duration
     $("timer-h").value = Math.floor(session.durationSecs / 3600);
     $("timer-m").value = Math.floor((session.durationSecs % 3600) / 60);
     $("timer-s").value = session.durationSecs % 60;
-    
-    // Restore repeat state
     $("timer-repeat").checked = session.repeat || false;
-    updateRepeatHint();
-    updateTimer();
-
-    // Show recovery banner so user knows a timer is running
+    updateRepeatHint(); updateTimer();
     showTimerRecoveryBanner(remaining, session.durationSecs, session.repeat);
-
-    // Auto-resume countdown
-    console.log("Timer recovery: resuming with", remaining, "s remaining");
     startTimer();
   } catch(e) {
-    console.warn("Timer recovery failed:", e.message, e.stack);
+    console.warn("Timer recovery failed:", e.message);
   }
 }
 
@@ -994,10 +1144,8 @@ function startTimer() {
   timerRunning = true;
   $("play-icon").style.display = "none"; $("pause-icon").style.display = "block";
 
-  const repeat  = $("timer-repeat").checked;
-  const endsAt  = Date.now() + timerLeft * 1000;
-
-  // Save to Firestore so GitHub Actions can push-notify if the tab closes
+  const repeat = $("timer-repeat").checked;
+  const endsAt = Date.now() + timerLeft * 1000;
   saveTimerSession(endsAt, timerTotal, repeat);
 
   timerInterval = setInterval(() => {
@@ -1008,8 +1156,6 @@ function startTimer() {
       $("play-icon").style.display = "block"; $("pause-icon").style.display = "none";
 
       if ($("timer-repeat").checked) {
-        // Repeat on — immediately save next cycle to Firestore before playing alarm
-        // This closes the gap where closing the page during the 1.5s delay loses the session
         timerLeft = timerTotal;
         updateTimer();
         const nextEndsAt = Date.now() + timerTotal * 1000;
@@ -1025,7 +1171,6 @@ function startTimer() {
           if ($("timer-repeat").checked) startTimer();
         }, 1500);
       } else {
-        // No repeat — cancel session so Actions doesn't double-notify
         cancelTimerSession();
         hideTimerRecoveryBanner();
         playAlarmSound(true);
@@ -1044,7 +1189,6 @@ function pauseTimer() {
   timerRunning = false;
   clearInterval(timerInterval); timerInterval = null;
   $("play-icon").style.display = "block"; $("pause-icon").style.display = "none";
-  // Cancel Firestore session — timer is paused, don't push-notify
   cancelTimerSession();
 }
 
@@ -1072,9 +1216,8 @@ updateTimer();
 // ── Task alarm checker ──
 const firedAlarms = new Set();
 setInterval(() => {
-  const now   = new Date();
-  const curr  = String(now.getHours()).padStart(2,"0") + ":" + String(now.getMinutes()).padStart(2,"0");
-  const today = now.toISOString().split("T")[0];
+  const now  = new Date();
+  const curr = String(now.getHours()).padStart(2,"0") + ":" + String(now.getMinutes()).padStart(2,"0");
   tasks.forEach(t => {
     if (!t.alarmEnabled || !t.alarmTime) return;
     const key = t.id + "_" + curr;
@@ -1089,8 +1232,6 @@ setInterval(() => {
       });
     }
   });
-  // Clear fired set at the next minute
-  const key0 = "lastMinute";
   if (firedAlarms.size > 200) firedAlarms.clear();
 }, 5000);
 
@@ -1115,10 +1256,9 @@ async function loadAllLogs() {
     } catch {}
   } catch(e) { console.warn("loadAllLogs:", e.message); actLogs = []; calLogs = []; }
   renderAll();
-  updateActivityUnit(); // refresh 24hr hint after data loads
+  updateActivityUnit();
 }
 
-// ── Dynamic unit label for activity type ──
 const ACTIVITY_UNITS = {
   exercise: { label: "(minutes)", step: "1" },
   study:    { label: "(hours)",   step: "0.5" },
@@ -1127,7 +1267,6 @@ const ACTIVITY_UNITS = {
   breaks:   { label: "(count)",   step: "1" },
 };
 
-// These three share a 24-hour pool (exercise stored as minutes, converted to hours for the check)
 function getUsedHoursToday() {
   const td = todayISO();
   const exerciseMin = actLogs.filter(l => l.type === "exercise" && l.date === td).reduce((s,l) => s + (l.value||0), 0);
@@ -1173,7 +1312,6 @@ $("btn-log-activity").addEventListener("click", async () => {
   const val  = parseFloat($("activity-value").value);
   if (!val || val <= 0) { showToast("Please enter a valid value.", "error"); return; }
 
-  // 24-hour shared pool check for exercise / study / sleep
   if (type === "exercise" || type === "study" || type === "sleep") {
     const addedHrs = type === "exercise" ? val / 60 : val;
     const usedHrs  = getUsedHoursToday();
@@ -1182,7 +1320,7 @@ $("btn-log-activity").addEventListener("click", async () => {
       const remInUnit = type === "exercise" ? Math.round(remHrs * 60) : Math.round(remHrs * 10) / 10;
       const unitLabel = type === "exercise" ? "minutes" : "hours";
       showToast(`Can't log — only ${remInUnit} ${unitLabel} remaining in today's 24 hr pool.`, "error");
-      updateActivityUnit(); // refresh hint
+      updateActivityUnit();
       return;
     }
   }
@@ -1193,7 +1331,7 @@ $("btn-log-activity").addEventListener("click", async () => {
     actLogs.push({ id: r.id, ...entry });
     $("activity-value").value = "";
     showToast("Activity logged! ✓", "success");
-    updateActivityUnit(); // refresh remaining hint
+    updateActivityUnit();
     renderAll();
   } catch(e) { console.error(e); showToast("Could not save. Check Firestore rules.", "error"); }
 });
@@ -1217,7 +1355,6 @@ function onGoalChange() {
 $("calorie-goal").addEventListener("change", onGoalChange);
 $("calorie-goal").addEventListener("blur",   onGoalChange);
 
-// ── Render helpers ──
 function weekDays(offset=0) {
   const today = new Date(), day = today.getDay(), days = [];
   for (let i=0;i<7;i++) { const d=new Date(today); d.setDate(today.getDate()-day-offset*7+i); days.push(d.toISOString().split("T")[0]); }
@@ -1245,17 +1382,15 @@ function renderChart() {
   const canvas = $("weekly-chart"); if (!canvas) return;
   const td = todayISO();
 
-  // Pull today's raw totals
   const exerciseMin = actLogs.filter(l => l.type === "exercise" && l.date === td).reduce((s,l) => s + (l.value||0), 0);
   const studyHrs    = actLogs.filter(l => l.type === "study"    && l.date === td).reduce((s,l) => s + (l.value||0), 0);
   const sleepHrs    = actLogs.filter(l => l.type === "sleep"    && l.date === td).reduce((s,l) => s + (l.value||0), 0);
   const waterGl     = actLogs.filter(l => l.type === "water"    && l.date === td).reduce((s,l) => s + (l.value||0), 0);
   const breaksN     = actLogs.filter(l => l.type === "breaks"   && l.date === td).reduce((s,l) => s + (l.value||0), 0);
 
-  // Convert everything to HOURS for fair pie slices
-  const exerciseHrs = exerciseMin / 60;                // e.g. 120 min → 2 hrs
-  const waterHrsEq  = waterGl  * 0.25;                // 1 glass ≈ 15 min equivalent
-  const breaksHrsEq = breaksN  * 0.25;                // 1 break ≈ 15 min equivalent
+  const exerciseHrs = exerciseMin / 60;
+  const waterHrsEq  = waterGl  * 0.25;
+  const breaksHrsEq = breaksN  * 0.25;
 
   const normVals = [exerciseHrs, studyHrs, sleepHrs, waterHrsEq, breaksHrsEq];
   const grand    = normVals.reduce((a, b) => a + b, 0);
@@ -1263,7 +1398,6 @@ function renderChart() {
   const labels = ["Exercise", "Study", "Sleep", "Water", "Breaks"];
   const colors = ["#f97316", "#8b5cf6", "#ec4899", "#06b6d4", "#10b981"];
 
-  // Human-readable display for each slice
   function fmtMins(totalMins) {
     const m = Math.round(totalMins);
     if (m === 0) return "0 min";
@@ -1280,11 +1414,8 @@ function renderChart() {
   }
 
   const displayVals = [
-    fmtMins(exerciseMin),
-    fmtHrs(studyHrs),
-    fmtHrs(sleepHrs),
-    `${Math.round(waterGl)} glasses`,
-    `${Math.round(breaksN)} breaks`,
+    fmtMins(exerciseMin), fmtHrs(studyHrs), fmtHrs(sleepHrs),
+    `${Math.round(waterGl)} glasses`, `${Math.round(breaksN)} breaks`,
   ];
 
   if (chart) { chart.destroy(); chart = null; }
@@ -1307,23 +1438,13 @@ function renderChart() {
     type: "doughnut",
     data: {
       labels,
-      datasets: [{
-        data: normVals,          // ← hours-normalized values drive the slice sizes
-        backgroundColor: colors,
-        borderWidth: 3,
-        borderColor: "#faf8f4",
-        hoverOffset: 8,
-      }]
+      datasets: [{ data: normVals, backgroundColor: colors, borderWidth: 3, borderColor: "#faf8f4", hoverOffset: 8 }]
     },
     options: {
       cutout: "68%",
       plugins: {
         legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: ctx => ` ${ctx.label}: ${pcts[ctx.dataIndex]}% (${displayVals[ctx.dataIndex]})`
-          }
-        }
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${pcts[ctx.dataIndex]}% (${displayVals[ctx.dataIndex]})` } }
       },
       onClick(evt, elems) {
         if (elems.length) {
@@ -1336,12 +1457,10 @@ function renderChart() {
     }
   });
 
-  // Default center — biggest slice
   const maxIdx = pcts.indexOf(Math.max(...pcts));
   $("pie-center-val").textContent = pcts[maxIdx] + "%";
   $("pie-center-sub").textContent = labels[maxIdx];
 
-  // Percentage grid
   $("pie-pct-grid").innerHTML = labels.map((l, i) => `
     <div class="pie-pct-item">
       <span class="pie-pct-color" style="background:${colors[i]}"></span>
@@ -1422,7 +1541,6 @@ function getCalRecs(total, goal) {
 // ════════════════════════════
 let calcGoalType = "maintain";
 
-// Toggle accordion
 $("btn-calc-toggle").addEventListener("click", () => {
   const body = $("cal-calc-body");
   const btn  = $("btn-calc-toggle");
@@ -1430,7 +1548,6 @@ $("btn-calc-toggle").addEventListener("click", () => {
   btn.setAttribute("aria-expanded", open);
 });
 
-// Goal pills
 document.querySelectorAll(".goal-pill").forEach(pill => {
   pill.addEventListener("click", () => {
     document.querySelectorAll(".goal-pill").forEach(p => p.classList.remove("active"));
@@ -1453,7 +1570,6 @@ function runCalcCalories() {
     return;
   }
 
-  // Mifflin-St Jeor BMR
   let bmr;
   if (sex === "male") {
     bmr = 10 * weight + 6.25 * heightCm - 5 * age + 5;
@@ -1463,15 +1579,12 @@ function runCalcCalories() {
 
   const tdee = Math.round(bmr * activity);
 
-  // Adjust for goal
   let target;
-  if (calcGoalType === "loss")     target = Math.round(tdee - 500);   // ~0.5kg/week deficit
-  else if (calcGoalType === "gain") target = Math.round(tdee + 300);   // lean bulk surplus
+  if (calcGoalType === "loss")      target = Math.round(tdee - 500);
+  else if (calcGoalType === "gain") target = Math.round(tdee + 300);
   else                              target = tdee;
+  target = Math.max(1200, target);
 
-  target = Math.max(1200, target); // never below safe minimum
-
-  // Macro split (balanced default)
   const proteinPct = sex === "male" ? 0.30 : 0.28;
   const carbPct    = 0.45;
   const fatPct     = 1 - proteinPct - carbPct;
@@ -1479,11 +1592,9 @@ function runCalcCalories() {
   const carbG      = Math.round((target * carbPct) / 4);
   const fatG       = Math.round((target * fatPct) / 9);
 
-  // Goal descriptions
   const goalLabels = { maintain: "Maintain weight", loss: "Lose ~0.5 kg/week", gain: "Lean bulk" };
   const goalColors = { maintain: "#22c55e", loss: "#3b82f6", gain: "#f97316" };
 
-  // Render result
   $("calc-result-kcal").textContent = target.toLocaleString();
   $("calc-result-kcal").style.color = goalColors[calcGoalType];
 
@@ -1525,8 +1636,6 @@ function runCalcCalories() {
 
   const resultEl = $("cal-calc-result");
   resultEl.style.display = "block";
-
-  // Store target for "use as goal" button
   resultEl.dataset.target = target;
 }
 
@@ -1538,7 +1647,5 @@ $("btn-use-result").addEventListener("click", () => {
   setDoc(doc(db, "users", currentUser.uid, "settings", "tracker"), { calorieGoal: calGoal }).catch(() => {});
   renderCals();
   showToast(`Daily goal set to ${target.toLocaleString()} kcal ✓`, "success");
-  // Scroll to goal input
   $("calorie-goal").scrollIntoView({ behavior: "smooth", block: "center" });
 });
-
