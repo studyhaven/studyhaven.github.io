@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta name="theme-color" content="#faf8f4"/>
+  <meta name="description" content="StudyHaven — a safe and supportive space for students experiencing academic pressure."/>
+  <title>StudyHaven — Your Safe Space</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- LANDING PAGE -->
+  <div id="page-landing" class="page active">
+
+    <nav>
+      <a class="nav-logo" href="#">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+        </svg>
+        StudyHaven
+      </a>
+      <div class="nav-right">
+        <button class="nav-info-btn" onclick="openModal()" aria-label="Research Team Info">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+        </button>
+        <button class="nav-btn" onclick="showAuth('login')">My Account</button>
+      </div>
+    </nav>
+
+    <section class="hero">
+      <div class="hero-text">
+        <span class="badge">Student's safe space</span>
+        <h1>Welcome to <span>StudyHaven</span>!</h1>
+        <p>A safe and supportive space for students experiencing academic pressure — helping you maintain both physical and mental well-being.</p>
+        <p class="note">*Any information about the user will remain confidential.</p>
+        <button class="btn-primary" onclick="showAuth('signup')">Would you like to create an account?</button>
+      </div>
+      <div class="hero-img">
+        <img
+          src="https://i.pinimg.com/1200x/5f/f1/f5/5ff1f56561ce6a9258929f51257d2c5e.jpg"
+          alt="Peaceful study space"
+          onerror="this.src='https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=800'"
+          loading="eager"
+        >
+      </div>
+    </section>
+
+    <section class="features">
+      <div class="features-inner">
+        <div class="section-header">
+          <span class="badge">Featured</span>
+          <h2>How are you today?</h2>
+        </div>
+        <div class="cards">
+
+          <article class="card">
+            <img class="card-img"
+              src="https://i.pinimg.com/736x/3e/f9/15/3ef9159e24cf56a6c86b67ce6793fe24.jpg"
+              alt="AI Companion" loading="lazy"
+              onerror="this.src='https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600'">
+            <div class="card-body">
+              <div class="card-icon purple" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="#9333ea">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                </svg>
+              </div>
+              <h3>AI Companion</h3>
+              <p>Chat with our supportive AI companion anytime you need someone to talk to about academic stress.</p>
+            </div>
+          </article>
+
+          <article class="card">
+            <img class="card-img"
+              src="https://i.pinimg.com/1200x/66/8c/e7/668ce78db676bc96008a9e15f85bcf7c.jpg"
+              alt="Time Management" loading="lazy"
+              onerror="this.src='https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=600'">
+            <div class="card-body">
+              <div class="card-icon blue" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="#9333ea">
+                  <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
+                </svg>
+              </div>
+              <h3>Time Management</h3>
+              <p>Struggling with deadlines? Organize your schedule and manage your time effectively right here.</p>
+            </div>
+          </article>
+
+          <article class="card">
+            <img class="card-img"
+              src="https://i.pinimg.com/1200x/75/af/85/75af85539e5ed6e88a71ecf2a56153e3.jpg"
+              alt="Wellness Tracker" loading="lazy"
+              onerror="this.src='https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600'">
+            <div class="card-body">
+              <div class="card-icon green" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="#9333ea">
+                  <path d="M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3C14.8 12 16.8 13 19 13v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7"/>
+                </svg>
+              </div>
+              <h3>Tracker</h3>
+              <p>Track your physical productivity and mental wellness — and watch your improvements over time.</p>
+            </div>
+          </article>
+
+        </div>
+
+        <!-- Dots (visible on mobile only, controlled by JS) -->
+        <div class="carousel-dots" id="carousel-dots" aria-label="Carousel navigation">
+          <button class="dot active" data-index="0" aria-label="Card 1"></button>
+          <button class="dot" data-index="1" aria-label="Card 2"></button>
+          <button class="dot" data-index="2" aria-label="Card 3"></button>
+        </div>
+
+      </div>
+    </section>
+
+    <footer>
+      <p>© 2026 StudyHaven. A safe space for students.</p>
+    </footer>
+
+  </div><!-- /page-landing -->
+
+
+  <!-- AUTH PAGE -->
+  <div id="page-auth" class="page">
+    <div class="auth-page">
+
+      <div class="auth-logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+        </svg>
+        StudyHaven
+      </div>
+
+      <div class="auth-card">
+        <span class="badge" id="auth-badge">Mood</span>
+        <h2 id="auth-heading">How are you feeling today?</h2>
+
+        <div class="form-group">
+          <label for="input-email">Email</label>
+          <input type="email" id="input-email" placeholder="you@example.com"
+            autocomplete="email" inputmode="email" required>
+        </div>
+
+        <div class="form-group">
+          <label for="input-password">Password</label>
+          <div class="password-wrapper">
+            <input type="password" id="input-password" placeholder="Password"
+              autocomplete="current-password" required oninput="validatePasswordMatch()">
+            <button type="button" class="password-toggle hidden" id="toggle-password" onclick="togglePasswordVisibility('input-password', 'toggle-password')" aria-label="Show password">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+          <p class="form-hint" id="hint-password" style="display:none">*At least 6 characters</p>
+        </div>
+
+        <div class="form-group" id="confirm-password-group" style="display:none">
+          <label for="input-confirm-password">Confirm Password</label>
+          <div class="password-wrapper">
+            <input type="password" id="input-confirm-password" placeholder="Confirm Password"
+              autocomplete="current-password" required oninput="validatePasswordMatch()">
+            <button type="button" class="password-toggle" id="toggle-confirm-password" onclick="togglePasswordVisibility('input-confirm-password', 'toggle-confirm-password')" aria-label="Show password">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+          <p class="form-hint" id="password-match-warning" style="display:none"></p>
+        </div>
+
+        <button class="btn-full" id="auth-submit" onclick="handleAuth()">
+          <span id="auth-submit-text">Sign up</span>
+          <span class="spinner" id="auth-spinner" aria-hidden="true"></span>
+        </button>
+
+        <!-- Divider -->
+        <div class="auth-divider">
+          <span>or</span>
+        </div>
+
+        <!-- Google Sign-In -->
+        <button class="btn-google" id="btn-google" onclick="handleGoogleSignIn()">
+          <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+            <path fill="none" d="M0 0h48v48H0z"/>
+          </svg>
+          Continue with Google
+          <span class="spinner" id="google-spinner" aria-hidden="true"></span>
+        </button>
+
+        <div class="auth-switch">
+          <span id="auth-switch-text">Already have an account?</span>
+          <button class="btn-link" onclick="toggleAuthMode()" id="auth-switch-btn">Log in</button>
+        </div>
+
+        <div class="auth-switch mt-sm">
+          <button class="btn-muted" onclick="showLanding()">← Back to home</button>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /page-auth -->
+
+
+  <!-- DASHBOARD PAGE -->
+  <div id="page-dashboard" class="page">
+
+    <nav>
+      <a class="nav-logo" href="#">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+        </svg>
+        StudyHaven
+      </a>
+      <button class="nav-btn" onclick="handleLogout()">Log out</button>
+    </nav>
+
+    <div class="dashboard-page">
+      <h2>Welcome back, <span class="text-sage" id="dash-username"></span>! 🌿</h2>
+      <p>Your safe space is ready. More features coming soon.</p>
+    </div>
+
+  </div><!-- /page-dashboard -->
+
+
+  <!-- RESEARCHER MODAL -->
+  <div class="modal-overlay" id="modal-overlay" onclick="handleOverlayClick(event)">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <button class="modal-close" id="modal-close" onclick="closeModal()" aria-label="Close">✕</button>
+      <p class="modal-heading" id="modal-title">Research Team</p>
+
+      <div class="modal-carousel">
+        <div class="modal-track" id="modal-track">
+
+          <div class="modal-slide">
+            <div class="researcher-profile">
+              <div class="researcher-avatar" style="background: linear-gradient(135deg, #a855f7, #7e22ce)">LKV</div>
+              <div class="researcher-badge-pill">Lead Researcher</div>
+            </div>
+            <h2 class="researcher-name">Lexy Kae Valenzuela</h2>
+            <p class="researcher-title">Grade 12 — ICT Strand<br>National College of Science and Technology</p>
+            <p class="researcher-bio">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+            <div class="researcher-contacts">
+              <a class="contact-item" href="mailto:l.valenzuela@ncst.student.edu.ph">
+                <span class="contact-icon">✉</span>
+                <div><span class="contact-label">Email</span><span class="contact-value">l.valenzuela@ncst.student.edu.ph</span></div>
+              </a>
+              <a class="contact-item" href="tel:+639171234567">
+                <span class="contact-icon">📞</span>
+                <div><span class="contact-label">Phone</span><span class="contact-value">+63 917 123 4567</span></div>
+              </a>
+            </div>
+          </div>
+
+          <div class="modal-slide">
+            <div class="researcher-profile">
+              <div class="researcher-avatar" style="background: linear-gradient(135deg, #c084fc, #9333ea)">ABT</div>
+              <div class="researcher-badge-pill">Co-Researcher</div>
+            </div>
+            <h2 class="researcher-name">Arlan B. Taguiam</h2>
+            <p class="researcher-title">Grade 12 — ICT Strand<br>National College of Science and Technology</p>
+            <p class="researcher-bio">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+            <div class="researcher-contacts">
+              <a class="contact-item" href="mailto:a.taguiam@ncst.student.edu.ph">
+                <span class="contact-icon">✉</span>
+                <div><span class="contact-label">Email</span><span class="contact-value">a.taguiam@ncst.student.edu.ph</span></div>
+              </a>
+              <a class="contact-item" href="tel:+639181234567">
+                <span class="contact-icon">📞</span>
+                <div><span class="contact-label">Phone</span><span class="contact-value">+63 918 123 4567</span></div>
+              </a>
+            </div>
+          </div>
+
+          <div class="modal-slide">
+            <div class="researcher-profile">
+              <div class="researcher-avatar" style="background: linear-gradient(135deg, #7e22ce, #a855f7)">JI</div>
+              <div class="researcher-badge-pill">Co-Researcher</div>
+            </div>
+            <h2 class="researcher-name">Justine Ignacio</h2>
+            <p class="researcher-title">Grade 12 — ICT Strand<br>National College of Science and Technology</p>
+            <p class="researcher-bio">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+            <div class="researcher-contacts">
+              <a class="contact-item" href="mailto:j.ignacio@ncst.student.edu.ph">
+                <span class="contact-icon">✉</span>
+                <div><span class="contact-label">Email</span><span class="contact-value">j.ignacio@ncst.student.edu.ph</span></div>
+              </a>
+              <a class="contact-item" href="tel:+639191234567">
+                <span class="contact-icon">📞</span>
+                <div><span class="contact-label">Phone</span><span class="contact-value">+63 919 123 4567</span></div>
+              </a>
+            </div>
+          </div>
+
+          <div class="modal-slide">
+            <div class="researcher-profile">
+              <div class="researcher-avatar" style="background: linear-gradient(135deg, #d8b4fe, #9333ea)">AN</div>
+              <div class="researcher-badge-pill">Co-Researcher</div>
+            </div>
+            <h2 class="researcher-name">Alyssa Nazu</h2>
+            <p class="researcher-title">Grade 12 — ICT Strand<br>National College of Science and Technology</p>
+            <p class="researcher-bio">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+            <div class="researcher-contacts">
+              <a class="contact-item" href="mailto:a.nazu@ncst.student.edu.ph">
+                <span class="contact-icon">✉</span>
+                <div><span class="contact-label">Email</span><span class="contact-value">a.nazu@ncst.student.edu.ph</span></div>
+              </a>
+              <a class="contact-item" href="tel:+639201234567">
+                <span class="contact-icon">📞</span>
+                <div><span class="contact-label">Phone</span><span class="contact-value">+63 920 123 4567</span></div>
+              </a>
+            </div>
+          </div>
+
+          <div class="modal-slide">
+            <div class="researcher-profile">
+              <div class="researcher-avatar" style="background: linear-gradient(135deg, #a855f7, #c084fc)">RA</div>
+              <div class="researcher-badge-pill">Co-Researcher</div>
+            </div>
+            <h2 class="researcher-name">Rica Azores</h2>
+            <p class="researcher-title">Grade 12 — ICT Strand<br>National College of Science and Technology</p>
+            <p class="researcher-bio">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+            <div class="researcher-contacts">
+              <a class="contact-item" href="mailto:r.azores@ncst.student.edu.ph">
+                <span class="contact-icon">✉</span>
+                <div><span class="contact-label">Email</span><span class="contact-value">r.azores@ncst.student.edu.ph</span></div>
+              </a>
+              <a class="contact-item" href="tel:+639211234567">
+                <span class="contact-icon">📞</span>
+                <div><span class="contact-label">Phone</span><span class="contact-value">+63 921 123 4567</span></div>
+              </a>
+            </div>
+          </div>
+
+        </div><!-- /modal-track -->
+      </div><!-- /modal-carousel -->
+
+      <div class="modal-nav">
+        <button class="modal-nav-btn" id="modal-prev" onclick="modalPrev()" aria-label="Previous">←</button>
+        <div class="modal-dots" id="modal-dots"></div>
+        <button class="modal-nav-btn" id="modal-next" onclick="modalNext()" aria-label="Next">→</button>
+      </div>
+
+      <p class="researcher-footer">
+        This app is part of a Grade 12 research study. Your data is collected, kept confidential, and protected in accordance with ethical research standards.
+      </p>
+    </div>
+  </div><!-- /modal -->
+
+  <!-- Toast -->
+  <div class="toast" id="toast" role="alert" aria-live="polite"></div>
+
+  <!-- App (ES module) -->
+  <script type="module" src="scripts/app.js"></script>
+
+</body>
+</html>

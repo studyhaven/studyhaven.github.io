@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>StudyHaven — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+/* ── ISOLATION: neutralise any global nav/button styles from index.css ── */
+header.dash-nav, header.dash-nav * { box-sizing: border-box; }
+
+/* ── Reset & Variables ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --sage: #9333ea;
+  --sage-dark: #7e22ce;
+  --sage-light: #d8b4fe;
+  --sage-pale: #f3e8ff;
+  --blush: #e8c5b4;
+  --cream: #faf8f4;
+  --charcoal: #2c2c2c;
+  --muted: #6b6b6b;
+  --white: #ffffff;
+  --shadow-sm: 0 4px 16px rgba(0,0,0,0.06);
+  --shadow: 0 8px 40px rgba(0,0,0,0.08);
+  --shadow-lg: 0 20px 60px rgba(147,51,234,0.15);
+  --radius: 18px;
+  --radius-sm: 10px;
+  --radius-pill: 50px;
+  --transition: .2s ease;
+}
+html { font-size: 16px; scroll-behavior: smooth; }
+body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--charcoal); min-height: 100vh; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+img { display: block; max-width: 100%; }
+
+/* ── Nav ── */
+.dash-nav {
+  position: sticky !important; top: 0; z-index: 100;
+  background: rgba(250,248,244,0.95) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(147,51,234,0.12) !important;
+  padding: 0 1.25rem !important;
+  height: 60px !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100%;
+}
+@media(min-width:640px){ .dash-nav { padding: 0 2rem !important; } }
+.nav-logo {
+  display: flex; align-items: center; gap: .5rem;
+  font-family: 'Lora', serif; font-size: 1.15rem; color: var(--charcoal);
+  text-decoration: none; all: unset; display: flex; align-items: center; gap: .5rem;
+  font-family: 'Lora', serif; font-size: 1.15rem; color: var(--charcoal); cursor: pointer;
+}
+.nav-logo svg { color: var(--sage); flex-shrink: 0; }
+.dash-nav-right { display: flex; align-items: center; gap: .75rem; }
+.dash-welcome { font-size: .82rem; color: var(--muted); display: none; }
+@media(min-width:480px){ .dash-welcome { display: block; } }
+.dash-logout {
+  all: unset;
+  display: inline-flex !important; align-items: center; gap: .4rem;
+  font-size: .82rem !important; padding: .4rem .9rem !important;
+  background: transparent !important; border: 1.5px solid var(--sage) !important;
+  color: var(--sage) !important; border-radius: var(--radius-pill) !important;
+  font-family: 'DM Sans', sans-serif !important; cursor: pointer !important;
+  transition: all var(--transition); white-space: nowrap;
+}
+.dash-logout:hover { background: var(--sage) !important; color: white !important; }
+
+/* ── Main layout ── */
+.dash-main { max-width: 860px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+@media(min-width:640px){ .dash-main { padding: 2rem 2rem 4rem; } }
+
+/* ── Buttons (dashboard-scoped) ── */
+.dash-main .btn-primary,
+.btn-primary {
+  display: inline-flex !important; align-items: center; justify-content: center;
+  background: var(--sage) !important; color: var(--white) !important;
+  padding: .85rem 1.75rem !important; border-radius: var(--radius-pill) !important;
+  border: none !important; cursor: pointer !important;
+  font-family: 'DM Sans', sans-serif !important; font-size: 1rem !important; font-weight: 500 !important;
+  transition: background var(--transition), transform var(--transition);
+  text-decoration: none; width: 100%; margin-top: 1.25rem;
+}
+.dash-main .btn-primary:hover, .btn-primary:hover { background: var(--sage-dark) !important; transform: translateY(-2px); }
+
+/* ── Tabs ── */
+.tabs-wrapper { display: flex; justify-content: center; margin-bottom: 1.75rem; }
+.tabs-bar { display: flex; background: var(--sage-pale); border-radius: var(--radius-pill); padding: .3rem; gap: .2rem; width: 100%; max-width: 520px; }
+.tab-btn {
+  all: unset;
+  flex: 1; display: flex !important; align-items: center; justify-content: center; gap: .4rem;
+  padding: .55rem .5rem; border-radius: var(--radius-pill);
+  background: transparent; color: var(--muted);
+  font-family: 'DM Sans', sans-serif; font-size: .82rem; font-weight: 500;
+  cursor: pointer; transition: background var(--transition), color var(--transition), box-shadow var(--transition);
+  white-space: nowrap; text-align: center;
+}
+.tab-btn span { display: none; }
+@media(min-width:420px){ .tab-btn span { display: inline; } }
+.tab-btn.active { background: var(--white); color: var(--sage); box-shadow: 0 2px 10px rgba(147,51,234,0.12); }
+.tab-btn:hover:not(.active) { color: var(--sage); }
+
+/* ── Panels ── */
+.tab-panels { position: relative; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; animation: fadeUp .3s ease; }
+@keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+.panel-inner { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow-sm); border: 1px solid rgba(147,51,234,0.07); overflow: hidden; }
+
+/* ── AI Companion ── */
+.companion-layout { display: flex; flex-direction: column; height: min(72vh,660px); }
+.companion-header { display: flex; align-items: center; gap: .85rem; padding: 1.1rem 1.25rem; border-bottom: 1px solid rgba(147,51,234,0.08); background: linear-gradient(90deg,var(--sage-pale),var(--white)); flex-shrink: 0; }
+.companion-avatar { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg,var(--sage),var(--sage-dark)); display: flex; align-items: center; justify-content: center; color: white; flex-shrink: 0; box-shadow: 0 4px 14px rgba(147,51,234,0.3); }
+.companion-name { font-family:'Lora',serif; font-size:1rem; font-weight:600; margin:0; }
+.companion-status { font-size:.75rem; color:var(--muted); display:flex; align-items:center; gap:.35rem; margin:.1rem 0 0; }
+.status-dot { width:7px; height:7px; border-radius:50%; background:#22c55e; display:inline-block; box-shadow:0 0 0 2px rgba(34,197,94,.25); }
+.chat-window { flex:1; overflow-y:auto; padding:1.1rem 1.25rem; display:flex; flex-direction:column; gap:.85rem; scrollbar-width:thin; scrollbar-color:var(--sage-light) transparent; }
+.chat-msg { display:flex; flex-direction:column; gap:.2rem; max-width:80%; }
+.chat-msg.user { align-self:flex-end; align-items:flex-end; }
+.chat-msg.ai { align-self:flex-start; align-items:flex-start; }
+.msg-bubble { padding:.7rem 1rem; border-radius:18px; font-size:.88rem; line-height:1.65; }
+.chat-msg.ai .msg-bubble { background:var(--sage-pale); color:var(--charcoal); border-bottom-left-radius:4px; }
+.chat-msg.user .msg-bubble { background:var(--sage); color:white; border-bottom-right-radius:4px; }
+.msg-time { font-size:.68rem; color:var(--muted); padding:0 .25rem; }
+.typing-indicator .msg-bubble { display:flex; align-items:center; gap:4px; padding:.8rem 1rem; }
+.typing-dot { width:6px; height:6px; border-radius:50%; background:var(--sage); animation:typingBounce 1.2s infinite; }
+.typing-dot:nth-child(2){ animation-delay:.2s; }
+.typing-dot:nth-child(3){ animation-delay:.4s; }
+@keyframes typingBounce { 0%,60%,100%{transform:translateY(0);opacity:.4;} 30%{transform:translateY(-5px);opacity:1;} }
+.quick-chips { display:flex; flex-wrap:wrap; gap:.4rem; padding:.65rem 1.25rem; border-top:1px solid rgba(147,51,234,0.07); flex-shrink:0; }
+.chip { all: unset; background:var(--sage-pale); color:var(--sage); border:1px solid var(--sage-light); border-radius:var(--radius-pill); padding:.3rem .85rem; font-family:'DM Sans',sans-serif; font-size:.78rem; font-weight:500; cursor:pointer; transition:background var(--transition),color var(--transition); white-space:nowrap; }
+.chip:hover { background:var(--sage); color:white; border-color:var(--sage); }
+.chat-input-row { display:flex; gap:.5rem; padding:.85rem 1.25rem; border-top:1px solid rgba(147,51,234,0.08); flex-shrink:0; }
+.chat-input { flex:1; padding:.7rem 1rem; border:1.5px solid #e2e2e2; border-radius:var(--radius-pill); font-family:'DM Sans',sans-serif; font-size:1rem; background:var(--cream); color:var(--charcoal); outline:none; transition:border-color var(--transition); }
+.chat-input:focus { border-color:var(--sage); background:white; }
+.chat-send { all: unset; width:42px; height:42px; border-radius:50%; background:var(--sage); color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:background var(--transition),transform var(--transition); }
+.chat-send:hover { background:var(--sage-dark); transform:scale(1.05); }
+
+/* ── Shared form ── */
+.section-title-row { display:flex; align-items:center; justify-content:space-between; padding:1.25rem 1.25rem .75rem; border-bottom:1px solid rgba(147,51,234,0.07); }
+.section-title { font-family:'Lora',serif; font-size:1.2rem; font-weight:600; margin:0; }
+.section-subtitle { font-size:.82rem; color:var(--muted); margin:0; }
+.form-label { display:block; font-size:.8rem; font-weight:500; color:var(--muted); margin-bottom:.35rem; text-transform:uppercase; letter-spacing:.04em; }
+.form-group { display:flex; flex-direction:column; }
+.form-input { width:100%; padding:.6rem .85rem; border:1.5px solid #e2e2e2 !important; border-radius:var(--radius-sm); font-family:'DM Sans',sans-serif; font-size:.9rem; background:white; color:var(--charcoal); outline:none; transition:border-color var(--transition); -webkit-appearance:none; box-sizing:border-box; }
+.form-input:focus { border-color:var(--sage) !important; }
+
+/* ── Sub-tabs ── */
+.subtabs-bar { display:flex; border-bottom:1px solid rgba(147,51,234,0.1); padding:0 1.25rem; gap:.25rem; }
+.subtab-btn { all: unset; padding:.65rem 1.1rem; font-family:'DM Sans',sans-serif; font-size:.88rem; font-weight:500; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; transition:color var(--transition),border-bottom-color var(--transition); white-space:nowrap; }
+.subtab-btn.active { color:var(--sage); border-bottom-color:var(--sage); }
+.subtab-btn:hover:not(.active) { color:var(--sage); }
+.subtab-panel { display:none; }
+.subtab-panel.active { display:block; animation:fadeUp .25s ease; }
+
+/* ── Filter buttons ── */
+.filter-row { display:flex; gap:.4rem; flex-wrap:wrap; padding:.75rem 1.25rem; border-bottom:1px solid rgba(147,51,234,0.06); }
+.filter-btn { all: unset; background:transparent; color:var(--muted); border:1px solid #e2e2e2; border-radius:var(--radius-pill); padding:.28rem .8rem; font-family:'DM Sans',sans-serif; font-size:.78rem; cursor:pointer; transition:all var(--transition); }
+.filter-btn.active,.filter-btn:hover { background:var(--sage-pale); color:var(--sage); border-color:var(--sage-light); }
+
+/* ── Tracker form card ── */
+.tracker-form-card { margin:1.25rem; padding:1.1rem 1.25rem; background:var(--sage-pale); border-radius:var(--radius); border:1px solid rgba(147,51,234,0.1); }
+.tform-grid { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+@media(max-width:480px){ .tform-grid { grid-template-columns:1fr; } }
+
+/* ── Task stats ── */
+.tm-stats-row { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; padding:.75rem 1.25rem; border-bottom:1px solid rgba(147,51,234,0.07); }
+.tm-stat { background:var(--cream); border-radius:12px; padding:.85rem 1rem; display:flex; align-items:center; justify-content:space-between; border:1px solid rgba(147,51,234,0.08); }
+.tm-stat.upcoming { border-left:3px solid #f59e0b; }
+.tm-stat.completed { border-left:3px solid #22c55e; }
+.tm-stat-label { font-size:.8rem; color:var(--muted); font-weight:500; }
+.tm-stat-val { font-family:'Lora',serif; font-size:1.4rem; font-weight:600; color:var(--charcoal); }
+
+/* ── Task list ── */
+.task-list { padding:.75rem 1.25rem 1.25rem; }
+.task-empty { display:flex; flex-direction:column; align-items:center; gap:.65rem; padding:2.5rem 1rem; text-align:center; color:var(--muted); font-size:.88rem; border:2px dashed rgba(147,51,234,0.12); border-radius:var(--radius); }
+.tm-task-item { display:flex; align-items:flex-start; gap:.75rem; padding:.85rem; border-radius:12px; border:1px solid rgba(147,51,234,0.09); background:var(--cream); margin-bottom:.6rem; transition:box-shadow var(--transition); animation:fadeUp .25s ease; }
+.tm-task-item:hover { box-shadow:0 2px 12px rgba(0,0,0,0.07); }
+.tm-task-item.done { opacity:.65; }
+.tm-task-item.done .task-name { text-decoration:line-through; }
+.task-check { all: unset; width:20px; height:20px; border-radius:6px; border:2px solid var(--sage-light); background:white; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; transition:background var(--transition),border-color var(--transition); margin-top:1px; font-size:.7rem; }
+.task-check.checked { background:var(--sage); border-color:var(--sage); color:white; }
+.task-check:hover { border-color:var(--sage); }
+.task-info { flex:1; min-width:0; }
+.task-name { font-size:.9rem; font-weight:500; margin-bottom:.2rem; }
+.task-meta { display:flex; gap:.6rem; flex-wrap:wrap; font-size:.75rem; color:var(--muted); align-items:center; }
+.priority-dot { display:inline-block; width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.priority-dot.high { background:#ef4444; }
+.priority-dot.medium { background:#f59e0b; }
+.priority-dot.low { background:#22c55e; }
+.tm-icon-btn { all: unset; cursor:pointer; padding:.25rem; border-radius:6px; transition:color var(--transition),background var(--transition); display:flex; align-items:center; flex-shrink:0; line-height:1; }
+.tm-icon-btn.alarm-on { color:var(--sage); }
+.tm-icon-btn.alarm-off { color:#ccc; }
+.tm-icon-btn.delete { color:#ddd; }
+.tm-icon-btn.delete:hover { color:#ef4444; }
+.tm-icon-btn.realarm { color:#f59e0b; }
+.tm-icon-btn.realarm:hover { color:#d97706; }
+.tm-icon-btn:hover { background:rgba(0,0,0,0.05); }
+
+/* ── Re-alarm popup ── */
+.realarm-popup { position:absolute; right:0; top:100%; z-index:200; background:white; border-radius:12px; padding:.75rem; box-shadow:0 8px 30px rgba(0,0,0,0.15); border:1px solid rgba(147,51,234,0.12); display:none; min-width:200px; }
+.realarm-popup.open { display:block; animation:fadeUp .2s ease; }
+.realarm-popup label { font-size:.75rem; color:var(--muted); display:block; margin-bottom:.35rem; font-weight:500; text-transform:uppercase; letter-spacing:.04em; }
+.realarm-popup input { width:100%; padding:.45rem .7rem; border:1.5px solid #e2e2e2; border-radius:8px; font-family:'DM Sans',sans-serif; font-size:.88rem; color:var(--charcoal); outline:none; margin-bottom:.5rem; }
+.realarm-popup input:focus { border-color:var(--sage); }
+.realarm-popup-btns { display:flex; gap:.4rem; }
+.realarm-popup-btns button { all: unset; flex:1; padding:.35rem .6rem; border-radius:8px; cursor:pointer; font-family:'DM Sans',sans-serif; font-size:.78rem; font-weight:500; transition:background var(--transition); text-align:center; }
+.realarm-set { background:var(--sage); color:white; }
+.realarm-set:hover { background:var(--sage-dark); }
+.realarm-cancel { background:var(--cream); color:var(--muted); border:1px solid #e2e2e2; }
+.realarm-cancel:hover { border-color:var(--sage-light); }
+.task-actions-wrap { position:relative; display:flex; align-items:center; gap:.2rem; }
+
+/* ── Timer ── */
+.timer-card { margin:1.25rem; padding:1.5rem 1.25rem; background:var(--cream); border-radius:var(--radius); border:1px solid rgba(147,51,234,0.1); display:flex; flex-direction:column; align-items:center; gap:1.25rem; }
+.timer-header { display:flex; align-items:center; gap:.85rem; align-self:flex-start; width:100%; }
+.timer-ring-wrap { position:relative; width:160px; height:160px; flex-shrink:0; }
+.timer-ring { width:160px; height:160px; transform:rotate(-90deg); display:block; }
+.ring-bg { fill:none; stroke:rgba(147,51,234,0.1); stroke-width:8; }
+.ring-fill { fill:none; stroke:var(--sage); stroke-width:8; stroke-linecap:round; transition:stroke-dashoffset 1s linear; }
+.timer-display { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:'Lora',serif; font-size:2rem; font-weight:600; color:var(--charcoal); letter-spacing:.05em; }
+.timer-controls { display:flex; align-items:center; gap:1.25rem; }
+.timer-btn { all: unset; cursor:pointer; display:flex !important; align-items:center; justify-content:center; transition:background var(--transition),transform .1s; border-radius:50%; flex-shrink:0; }
+.timer-btn.play { width:58px; height:58px; background:var(--sage); color:white; box-shadow:0 4px 16px rgba(147,51,234,0.3); }
+.timer-btn.play:hover { background:var(--sage-dark); }
+.timer-btn.play:active { transform:scale(.95); }
+.timer-btn.reset { width:42px; height:42px; background:white; color:var(--muted); border:1.5px solid #e2e2e2; }
+.timer-btn.reset:hover { border-color:var(--sage-light); color:var(--sage); }
+.timer-btn.reset:active { transform:scale(.95); }
+.timer-custom { width:100%; text-align:center; }
+.timer-presets { width:100%; }
+.presets-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:.5rem; }
+.preset-btn { all: unset; background:white; color:var(--muted); border:1.5px solid #e2e2e2; border-radius:var(--radius-pill); padding:.45rem .5rem; font-family:'DM Sans',sans-serif; font-size:.82rem; font-weight:500; cursor:pointer; transition:background var(--transition),color var(--transition),border-color var(--transition); text-align:center; }
+.preset-btn:hover,.preset-btn.active { background:var(--sage-pale); color:var(--sage); border-color:var(--sage-light); }
+.preset-btn:active { transform:scale(.97); }
+
+/* ── Day Selector ── */
+.day-schedule-section { width:100%; }
+.day-schedule-section .form-label { text-align:center; display:block; margin-bottom:.6rem; }
+.day-toggles { display:flex; gap:.35rem; justify-content:center; flex-wrap:wrap; }
+.day-toggle-btn { all: unset; width:38px; height:38px; border-radius:50%; border:1.5px solid #e2e2e2; background:white; font-family:'DM Sans',sans-serif; font-size:.75rem; font-weight:600; color:var(--muted); cursor:pointer; transition:all var(--transition); display:flex !important; align-items:center; justify-content:center; flex-shrink:0; }
+.day-toggle-btn:hover { border-color:var(--sage-light); color:var(--sage); }
+.day-toggle-btn.active { background:var(--sage); color:white; border-color:var(--sage); box-shadow:0 2px 10px rgba(147,51,234,0.3); }
+.day-toggle-btn.today { border-color:var(--sage-light); }
+.day-schedule-info { text-align:center; font-size:.75rem; color:var(--muted); margin-top:.5rem; line-height:1.5; }
+.day-alarm-row { display:flex; gap:.5rem; align-items:center; justify-content:center; margin-top:.65rem; flex-wrap:wrap; }
+.day-alarm-label { font-size:.8rem; color:var(--muted); font-weight:500; white-space:nowrap; }
+.day-alarm-input { padding:.45rem .75rem; border:1.5px solid #e2e2e2; border-radius:var(--radius-sm); font-family:'DM Sans',sans-serif; font-size:.88rem; color:var(--charcoal); outline:none; max-width:120px; transition:border-color var(--transition); }
+.day-alarm-input:focus { border-color:var(--sage); }
+.btn-set-schedule { all: unset; padding:.45rem 1rem; border-radius:var(--radius-pill); background:var(--sage); color:white; font-family:'DM Sans',sans-serif; font-size:.82rem; font-weight:500; cursor:pointer; transition:background var(--transition); white-space:nowrap; }
+.btn-set-schedule:hover { background:var(--sage-dark); }
+.scheduled-sessions { margin-top:.75rem; }
+.session-pill { display:inline-flex; align-items:center; gap:.35rem; padding:.25rem .65rem; background:var(--sage-pale); border:1px solid var(--sage-light); border-radius:var(--radius-pill); font-size:.73rem; color:var(--sage); margin:.2rem; cursor:default; }
+.session-pill button { all: unset; color:var(--sage); cursor:pointer; padding:0; line-height:1; font-size:.8rem; opacity:.7; }
+.session-pill button:hover { opacity:1; }
+
+/* ── Tracker shared ── */
+.tracker-section { padding:1.25rem; border-top:1px solid rgba(147,51,234,0.07); }
+.tracker-section-title { font-family:'Lora',serif; font-size:1rem; font-weight:600; margin-bottom:1rem; color:var(--charcoal); }
+.tracker-card-title { font-family:'Lora',serif; font-size:.98rem; font-weight:600; margin-bottom:1rem; color:var(--charcoal); }
+.tracker-empty { display:flex; flex-direction:column; align-items:center; gap:.5rem; padding:2rem 1rem; text-align:center; color:var(--muted); font-size:.88rem; }
+.today-label { font-size:.78rem; color:var(--muted); }
+.today-stats-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:.65rem; }
+@media(min-width:560px){ .today-stats-grid { grid-template-columns:repeat(5,1fr); } }
+.today-stat-card { border-radius:14px; padding:.85rem .6rem; display:flex; flex-direction:column; align-items:center; gap:.3rem; text-align:center; border:1px solid rgba(0,0,0,0.05); }
+.today-stat-card.orange { background:linear-gradient(135deg,#fff7ed,#fee2e2); }
+.today-stat-card.purple { background:linear-gradient(135deg,#f5f3ff,#ede9fe); }
+.today-stat-card.pink { background:linear-gradient(135deg,#fdf2f8,#fce7f3); }
+.today-stat-card.cyan { background:linear-gradient(135deg,#ecfeff,#cffafe); }
+.today-stat-card.green { background:linear-gradient(135deg,#f0fdf4,#dcfce7); }
+.tsc-icon { font-size:1.4rem; }
+.tsc-val { font-family:'Lora',serif; font-size:1.3rem; font-weight:600; color:var(--charcoal); }
+.tsc-label { font-size:.68rem; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; }
+.chart-wrap { background:white; border-radius:12px; border:1px solid rgba(147,51,234,0.08); padding:1rem .5rem .5rem; overflow:hidden; }
+.chart-legend { display:flex; flex-wrap:wrap; gap:.5rem 1rem; margin-top:.75rem; font-size:.75rem; color:var(--muted); }
+.legend-item { display:flex; align-items:center; gap:.3rem; }
+.legend-dot { width:10px; height:10px; border-radius:3px; flex-shrink:0; }
+.weekly-results-grid { display:grid; grid-template-columns:1fr; gap:.75rem; margin-bottom:.75rem; }
+@media(min-width:560px){ .weekly-results-grid { grid-template-columns:repeat(3,1fr); } }
+.wr-card { background:white; border-radius:12px; padding:1rem; border:1px solid rgba(147,51,234,0.09); }
+.wr-header { display:flex; align-items:center; gap:.5rem; font-weight:500; font-size:.9rem; margin-bottom:.75rem; }
+.wr-icon { font-size:1.3rem; }
+.wr-label { font-size:.75rem; color:var(--muted); margin-bottom:.1rem; }
+.wr-val { font-family:'Lora',serif; font-size:1.3rem; font-weight:600; margin-bottom:.4rem; }
+.wr-prev { font-size:1rem; color:var(--muted); margin-bottom:.4rem; }
+.wr-change { font-size:.82rem; font-weight:600; }
+.wr-change.up { color:#16a34a; }
+.wr-change.down { color:#dc2626; }
+.wr-change.flat { color:var(--muted); }
+.wr-summary { background:white; border-radius:12px; padding:1rem; border:1px solid rgba(147,51,234,0.09); font-size:.88rem; color:var(--charcoal); line-height:1.65; }
+.avg-list { display:flex; flex-direction:column; gap:.5rem; }
+.avg-item { display:flex; align-items:center; gap:.75rem; padding:.7rem .85rem; background:var(--cream); border-radius:10px; border:1px solid rgba(147,51,234,0.07); }
+.avg-icon { font-size:1.3rem; flex-shrink:0; }
+.avg-name { flex:1; font-size:.88rem; }
+.avg-right { display:flex; flex-direction:column; align-items:flex-end; }
+.avg-val { font-family:'Lora',serif; font-size:1.05rem; font-weight:600; color:var(--sage); }
+.avg-sub { font-size:.68rem; color:var(--muted); }
+
+/* ── Calorie tracker ── */
+.calorie-summary-card { margin:1.25rem; padding:1.25rem; background:linear-gradient(135deg,#fff7ed,#fee2e2); border-radius:var(--radius); border:1px solid rgba(249,115,22,0.15); }
+.cal-summary-top { display:flex; align-items:center; gap:1rem; margin-bottom:1rem; }
+.cal-fraction { font-family:'Lora',serif; font-size:1.6rem; font-weight:600; color:var(--charcoal); }
+.cal-remaining { font-size:.82rem; color:var(--muted); margin-top:.15rem; }
+.cal-bar-bg { height:12px; border-radius:99px; background:rgba(0,0,0,0.08); overflow:hidden; }
+.cal-bar-fill { height:100%; border-radius:99px; background:#22c55e; transition:width .4s ease,background .3s; width:0%; }
+.cal-bar-fill.over { background:#ef4444; }
+.cal-recs-card { margin:1.25rem; padding:1.1rem 1.25rem; border-radius:var(--radius); border:1px solid rgba(147,51,234,0.1); background:var(--cream); }
+.cal-recs-msg { font-size:.88rem; color:var(--charcoal); margin-bottom:.85rem; line-height:1.6; }
+.cal-recs-sub { font-size:.78rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--sage); margin-bottom:.45rem; }
+.cal-recs-sub.red { color:#dc2626; }
+.food-item { padding:.65rem .75rem; background:white; border-radius:10px; border:1px solid rgba(147,51,234,0.08); margin-bottom:.45rem; font-size:.83rem; line-height:1.55; }
+.food-item strong { display:block; margin-bottom:.15rem; color:var(--charcoal); }
+.food-item .food-meta { color:var(--muted); }
+.food-item .food-cal { font-weight:600; color:var(--sage); }
+.avoid-item { font-size:.83rem; color:#dc2626; padding:.35rem 0; border-bottom:1px solid rgba(220,38,38,0.08); }
+.meal-log-item { display:flex; justify-content:space-between; align-items:center; padding:.75rem .85rem; background:var(--cream); border-radius:10px; border:1px solid rgba(147,51,234,0.08); margin-bottom:.5rem; animation:fadeUp .2s ease; }
+.meal-name { font-weight:500; font-size:.9rem; }
+.meal-time { font-size:.73rem; color:var(--muted); }
+.meal-cal { font-family:'Lora',serif; font-size:1.05rem; font-weight:600; color:var(--sage); text-align:right; }
+.meal-cal-sub { font-size:.68rem; color:var(--muted); }
+
+/* ── Toast ── */
+.toast { position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%) translateY(100px); background:var(--charcoal); color:white; padding:.7rem 1.4rem; border-radius:var(--radius-pill); font-family:'DM Sans',sans-serif; font-size:.88rem; box-shadow:0 6px 24px rgba(0,0,0,0.18); opacity:0; transition:opacity .25s,transform .25s; pointer-events:none; z-index:9999; white-space:nowrap; }
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+.toast.success { background:#16a34a; }
+.toast.error { background:#dc2626; }
+
+/* ── Alarm Notifications ── */
+.alarm-notifications { position:fixed; bottom:1.5rem; left:1.5rem; z-index:9998; display:flex; flex-direction:column-reverse; gap:.65rem; max-width:320px; pointer-events:none; }
+.alarm-notif { background:white; border-radius:16px; box-shadow:0 8px 32px rgba(0,0,0,0.18),0 0 0 2px var(--sage-light); padding:1rem 1.1rem; display:flex; align-items:flex-start; gap:.75rem; pointer-events:all; animation:alarmSlideIn .35s cubic-bezier(.175,.885,.32,1.2); border-left:4px solid var(--sage); position:relative; }
+@keyframes alarmSlideIn { from{opacity:0;transform:translateX(-30px) scale(.95);} to{opacity:1;transform:translateX(0) scale(1);} }
+.alarm-notif-icon { font-size:1.5rem; flex-shrink:0; animation:alarmPulse 1s ease-in-out 3; }
+@keyframes alarmPulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.25);} }
+.alarm-notif-body { flex:1; min-width:0; }
+.alarm-notif-title { font-weight:600; font-size:.88rem; color:var(--charcoal); margin-bottom:.2rem; }
+.alarm-notif-sub { font-size:.75rem; color:var(--muted); }
+.alarm-notif-actions { display:flex; gap:.4rem; margin-top:.6rem; }
+.alarm-notif-btn { all: unset; padding:.3rem .7rem; border-radius:var(--radius-pill); font-family:'DM Sans',sans-serif; font-size:.72rem; font-weight:500; cursor:pointer; transition:all var(--transition); }
+.alarm-notif-dismiss { background:var(--cream); color:var(--muted); border:1px solid #e2e2e2; }
+.alarm-notif-dismiss:hover { border-color:var(--sage-light); color:var(--sage); }
+.alarm-notif-email { background:var(--sage-pale); color:var(--sage); border:1px solid var(--sage-light); }
+.alarm-notif-email:hover { background:var(--sage); color:white; }
+.alarm-notif-close { all: unset; position:absolute; top:.6rem; right:.6rem; cursor:pointer; color:#ccc; font-size:.9rem; line-height:1; padding:.1rem; border-radius:50%; transition:color var(--transition); }
+.alarm-notif-close:hover { color:var(--muted); }
+
+/* ── Calorie Calculator ── */
+.cal-calc-card { margin:1.25rem; border-radius:var(--radius); border:1px solid rgba(147,51,234,0.12); background:white; overflow:hidden; }
+.cal-calc-toggle { all: unset; width:100%; display:flex !important; align-items:center; justify-content:space-between; padding:1rem 1.25rem; cursor:pointer; gap:.75rem; transition:background var(--transition); }
+.cal-calc-toggle:hover { background:var(--sage-pale); }
+.cal-calc-toggle[aria-expanded="true"] { background:var(--sage-pale); border-bottom:1px solid rgba(147,51,234,0.1); }
+.cal-calc-toggle-left { display:flex; align-items:center; gap:.75rem; }
+.cal-calc-icon { font-size:1.5rem; flex-shrink:0; }
+.cal-calc-title { display:block; font-family:'Lora',serif; font-size:.98rem; font-weight:600; color:var(--charcoal); }
+.cal-calc-sub { display:block; font-size:.75rem; color:var(--muted); margin-top:.1rem; }
+.cal-calc-chevron { color:var(--sage); flex-shrink:0; transition:transform var(--transition); }
+.cal-calc-toggle[aria-expanded="true"] .cal-calc-chevron { transform:rotate(180deg); }
+.cal-calc-body { display:none; padding:1.1rem 1.25rem 1.25rem; animation:fadeUp .2s ease; }
+.cal-calc-body.open { display:block; }
+.cal-calc-form { display:flex; flex-direction:column; gap:.1rem; }
+.cal-calc-grid { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+@media(max-width:480px){ .cal-calc-grid { grid-template-columns:1fr; } }
+.input-unit-wrap { position:relative; display:flex; align-items:center; }
+.input-unit-wrap .form-input { padding-right:2.5rem !important; }
+.input-unit { position:absolute; right:.75rem; font-size:.75rem; color:var(--muted); font-weight:500; pointer-events:none; }
+.cal-goal-pills { display:flex; gap:.4rem; flex-wrap:wrap; }
+.goal-pill { all: unset; flex:1; min-width:90px; padding:.45rem .6rem; border-radius:var(--radius-pill); border:1.5px solid #e2e2e2; background:white; font-family:'DM Sans',sans-serif; font-size:.78rem; font-weight:500; color:var(--muted); cursor:pointer; transition:all var(--transition); text-align:center; white-space:nowrap; }
+.goal-pill:hover { border-color:var(--sage-light); color:var(--sage); }
+.goal-pill.active { background:var(--sage); color:white; border-color:var(--sage); box-shadow:0 2px 10px rgba(147,51,234,0.25); }
+.btn-calc { all: unset; display:block; margin-top:1rem; width:100%; padding:.75rem; background:linear-gradient(135deg,var(--sage),var(--sage-dark)); color:white; border-radius:var(--radius-pill); font-family:'DM Sans',sans-serif; font-size:.95rem; font-weight:500; cursor:pointer; transition:opacity var(--transition),transform .1s; box-shadow:0 4px 16px rgba(147,51,234,0.3); text-align:center; }
+.btn-calc:hover { opacity:.92; }
+.btn-calc:active { transform:scale(.98); }
+.cal-calc-result { margin-top:1.1rem; border-radius:var(--radius); background:linear-gradient(135deg,#f5f3ff,#ede9fe); border:1px solid rgba(147,51,234,0.15); padding:1.1rem 1.25rem; animation:fadeUp .3s ease; }
+.cal-result-header { text-align:center; margin-bottom:1rem; }
+.cal-result-label { display:block; font-size:.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.3rem; }
+.cal-result-number { display:block; font-family:'Lora',serif; font-size:3rem; font-weight:600; color:var(--sage); line-height:1; }
+.cal-result-unit { display:block; font-size:.8rem; color:var(--muted); margin-top:.25rem; }
+.cal-result-breakdown { display:grid; grid-template-columns:repeat(3,1fr); gap:.5rem; margin-bottom:.85rem; }
+.breakdown-item { background:white; border-radius:10px; padding:.65rem .5rem; text-align:center; border:1px solid rgba(147,51,234,0.1); }
+.breakdown-label { display:block; font-size:.65rem; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin-bottom:.2rem; }
+.breakdown-val { display:block; font-family:'Lora',serif; font-size:1.1rem; font-weight:600; color:var(--charcoal); }
+.breakdown-sub { display:block; font-size:.65rem; color:var(--muted); }
+.cal-result-macros { display:grid; grid-template-columns:repeat(3,1fr); gap:.5rem; margin-bottom:1rem; }
+.macro-item { border-radius:10px; padding:.65rem .5rem; text-align:center; border:1px solid rgba(0,0,0,0.05); }
+.macro-item.protein { background:linear-gradient(135deg,#fef3c7,#fde68a); }
+.macro-item.carbs { background:linear-gradient(135deg,#dbeafe,#bfdbfe); }
+.macro-item.fat { background:linear-gradient(135deg,#fce7f3,#fbcfe8); }
+.macro-name { display:block; font-size:.65rem; color:#555; text-transform:uppercase; letter-spacing:.04em; margin-bottom:.2rem; }
+.macro-grams { display:block; font-family:'Lora',serif; font-size:1.05rem; font-weight:600; color:var(--charcoal); }
+.macro-pct { display:block; font-size:.65rem; color:#777; }
+.btn-use-result { all: unset; display:flex !important; width:100%; padding:.7rem; background:var(--sage); color:white; border-radius:var(--radius-pill); font-family:'DM Sans',sans-serif; font-size:.88rem; font-weight:500; cursor:pointer; align-items:center; justify-content:center; gap:.4rem; transition:background var(--transition),transform .1s; box-sizing:border-box; }
+.btn-use-result:hover { background:var(--sage-dark); }
+.btn-use-result:active { transform:scale(.98); }
+
+.dash-notif-btn {
+  all: unset;
+  display: flex !important;
+  align-items: center;
+  gap: .35rem;
+  padding: .38rem .85rem !important;
+  background: var(--sage-pale) !important;
+  color: var(--sage) !important;
+  border: 1.5px solid var(--sage-light) !important;
+  border-radius: var(--radius-pill) !important;
+  font-family: 'DM Sans', sans-serif !important;
+  font-size: .78rem !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: background var(--transition) !important;
+  white-space: nowrap;
+}
+.dash-notif-btn:hover { background: var(--sage-light) !important; }
+.dash-notif-btn.enabled {
+  background: #dcfce7 !important;
+  color: #16a34a !important;
+  border-color: #86efac !important;
+  pointer-events: none;
+}
+
+/* ── Timer H:M:S inputs ── */
+.timer-hms-wrap { margin-top: 1rem; }
+.timer-hms-row {
+  display: flex; align-items: center; justify-content: center;
+  gap: .4rem; flex-wrap: wrap;
+}
+.timer-hms-field { display: flex; align-items: center; gap: .2rem; }
+.timer-hms-input {
+  all: unset;
+  width: 52px; text-align: center;
+  font-family: 'DM Sans', sans-serif; font-size: 1.1rem; font-weight: 500;
+  color: var(--charcoal); background: white;
+  border: 1.5px solid rgba(147,51,234,0.2); border-radius: var(--radius-sm);
+  padding: .45rem .3rem;
+  transition: border-color var(--transition);
+  box-sizing: border-box;
+}
+.timer-hms-input:focus { border-color: var(--sage); outline: none; }
+.timer-hms-input::-webkit-inner-spin-button,
+.timer-hms-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+.timer-hms-label { font-size: .78rem; color: var(--muted); font-weight: 500; }
+.timer-hms-sep { font-size: 1.2rem; font-weight: 600; color: var(--muted); margin: 0 .1rem; }
+
+/* ── Pie chart ── */
+.pie-chart-wrap {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  background: white; border-radius: 12px; border: 1px solid rgba(147,51,234,0.08);
+  padding: 1.25rem; margin-bottom: .75rem;
+}
+.pie-center-label {
+  position: absolute; display: flex; flex-direction: column; align-items: center;
+  pointer-events: none;
+}
+.pie-center-val { font-family:'Lora',serif; font-size:1.4rem; font-weight:600; color:var(--charcoal); }
+.pie-center-sub { font-size:.68rem; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+.pie-pct-grid {
+  display: grid; grid-template-columns: repeat(3,1fr); gap: .45rem; margin-top: .6rem;
+}
+@media(min-width:480px){ .pie-pct-grid { grid-template-columns: repeat(5,1fr); } }
+.pie-pct-item {
+  background: white; border-radius: 10px; padding: .55rem .4rem;
+  text-align: center; border: 1px solid rgba(0,0,0,0.06);
+}
+.pie-pct-color { display:block; width:28px; height:4px; border-radius:2px; margin:0 auto .35rem; }
+.pie-pct-label { display:block; font-size:.65rem; color:var(--muted); margin-bottom:.2rem; text-transform:uppercase; letter-spacing:.03em; }
+.pie-pct-val   { display:block; font-family:'Lora',serif; font-size:.98rem; font-weight:600; color:var(--charcoal); }
+.pie-pct-raw   { display:block; font-size:.62rem; color:var(--muted); }
+
+/* ── Repeat alarm toggle ── */
+.timer-repeat-row {
+  width: 100%; display: flex; flex-direction: column; align-items: center; gap: .3rem;
+  padding: .65rem 1rem;
+  background: var(--sage-pale); border-radius: var(--radius-sm);
+  border: 1px solid rgba(147,51,234,0.1);
+}
+.repeat-toggle-label {
+  display: flex; align-items: center; gap: .65rem; cursor: pointer; user-select: none;
+}
+.repeat-checkbox { display: none; }
+.repeat-toggle-track {
+  width: 40px; height: 22px; border-radius: 11px; background: #d1d5db;
+  position: relative; flex-shrink: 0;
+  transition: background var(--transition);
+}
+.repeat-checkbox:checked + .repeat-toggle-track { background: var(--sage); }
+.repeat-toggle-thumb {
+  position: absolute; top: 3px; left: 3px;
+  width: 16px; height: 16px; border-radius: 50%; background: white;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+  transition: transform var(--transition);
+}
+.repeat-checkbox:checked + .repeat-toggle-track .repeat-toggle-thumb { transform: translateX(18px); }
+.repeat-label-text { font-size: .82rem; font-weight: 500; color: var(--charcoal); }
+.repeat-hint { font-size: .72rem; color: var(--sage); font-style: italic; }
+
+/* ── Focus visible ── */
+:focus-visible { outline:2px solid var(--sage); outline-offset:3px; border-radius:4px; }
+  </style>
+</head>
+<body>
+
+  <header class="dash-nav">
+    <a class="nav-logo" href="index.html">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+      StudyHaven
+    </a>
+    <div class="dash-nav-right">
+      <span class="dash-welcome">Welcome, <strong id="dash-username">—</strong></span>
+      <button class="dash-notif-btn" id="btn-enable-notif" title="Enable push notifications" style="display:none">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+        Enable Notifications
+      </button>
+      <button class="dash-logout" id="btn-logout">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5-5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+        Logout
+      </button>
+    </div>
+  </header>
+
+  <main class="dash-main">
+    <div class="tabs-wrapper">
+      <div class="tabs-bar" role="tablist">
+        <button class="tab-btn active" role="tab" data-tab="companion" aria-selected="true">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+          <span>AI Companion</span>
+        </button>
+        <button class="tab-btn" role="tab" data-tab="time" aria-selected="false">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>
+          <span>Time Management</span>
+        </button>
+        <button class="tab-btn" role="tab" data-tab="tracker" aria-selected="false">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3C14.8 12 16.8 13 19 13v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7"/></svg>
+          <span>Tracker</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="tab-panels">
+
+      <!-- AI COMPANION -->
+      <section class="tab-panel active" id="panel-companion" role="tabpanel">
+        <div class="panel-inner companion-layout">
+          <div class="companion-header">
+            <div class="companion-avatar">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+            </div>
+            <div>
+              <h2 class="companion-name">Haven</h2>
+              <p class="companion-status"><span class="status-dot"></span>Online &amp; here for you</p>
+            </div>
+          </div>
+          <div class="chat-window" id="chat-window">
+            <div class="chat-msg ai">
+              <div class="msg-bubble">Hi there! I'm Haven, your AI companion 🌿 I'm here to listen and support you through academic pressure. How are you feeling today?</div>
+              <span class="msg-time" id="chat-init-time"></span>
+            </div>
+          </div>
+          <div class="quick-chips">
+            <button class="chip" onclick="sendChip(this)">I'm feeling overwhelmed</button>
+            <button class="chip" onclick="sendChip(this)">I need study tips</button>
+            <button class="chip" onclick="sendChip(this)">I'm anxious about exams</button>
+            <button class="chip" onclick="sendChip(this)">I can't focus</button>
+          </div>
+          <div class="chat-input-row">
+            <input type="text" id="chat-input" class="chat-input" placeholder="Type a message…" autocomplete="off">
+            <button class="chat-send" id="btn-chat-send">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- TIME MANAGEMENT -->
+      <section class="tab-panel" id="panel-time" role="tabpanel">
+        <div class="panel-inner">
+          <div class="section-title-row">
+            <h2 class="section-title">Time Management</h2>
+            <p class="section-subtitle">Manage your time with tasks, timers, and alarms</p>
+          </div>
+          <div class="subtabs-bar">
+            <button class="subtab-btn active" data-subtab="tm-tasks">📋 Tasks</button>
+            <button class="subtab-btn" data-subtab="tm-timer">⏱️ Timer</button>
+          </div>
+
+          <!-- TASKS -->
+          <div class="subtab-panel active" id="subtab-tm-tasks">
+            <div class="tracker-form-card">
+              <p style="font-size:.75rem;color:var(--sage);margin-bottom:.75rem;font-weight:500">⚠️ Task name, deadline and alarm are all required.</p>
+              <div class="tform-grid">
+                <div class="form-group">
+                  <label class="form-label">Task Title <span class="req-star">*</span></label>
+                  <input type="text" id="tm-task-title" class="form-input" placeholder="Enter task title">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Deadline <span class="req-star">*</span></label>
+                  <input type="date" id="tm-task-deadline" class="form-input">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Priority</label>
+                  <select id="tm-task-priority" class="form-input">
+                    <option value="high">🔴 High</option>
+                    <option value="medium" selected>🟡 Medium</option>
+                    <option value="low">🟢 Low</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Alarm Time <span class="req-star">*</span></label>
+                  <input type="time" id="tm-task-alarm" class="form-input">
+                </div>
+              </div>
+              <button class="btn-primary" style="width:100%;margin-top:.75rem" id="btn-tm-add-task">+ Add Task</button>
+            </div>
+            <div class="tm-stats-row">
+              <div class="tm-stat upcoming"><span class="tm-stat-label">Upcoming</span><span class="tm-stat-val" id="tm-upcoming-count">0</span></div>
+              <div class="tm-stat completed"><span class="tm-stat-label">Completed</span><span class="tm-stat-val" id="tm-completed-count">0</span></div>
+            </div>
+            <div class="filter-row">
+              <button class="filter-btn active" data-tm-filter="all">All</button>
+              <button class="filter-btn" data-tm-filter="high">🔴 High</button>
+              <button class="filter-btn" data-tm-filter="medium">🟡 Medium</button>
+              <button class="filter-btn" data-tm-filter="low">🟢 Low</button>
+              <button class="filter-btn" data-tm-filter="done">✓ Done</button>
+            </div>
+            <div class="task-list" id="tm-task-list">
+              <div class="task-empty" id="tm-task-empty">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor" style="color:var(--sage-light)"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>
+                <p>No tasks yet. Add your first task above!</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- TIMER -->
+          <div class="subtab-panel" id="subtab-tm-timer">
+            <div class="timer-card">
+              <div class="timer-header">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" style="color:var(--sage)"><path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
+                <div>
+                  <h3 style="font-family:'Lora',serif;font-size:1.1rem;margin:0">Study Timer</h3>
+                  <p style="font-size:.78rem;color:var(--muted)">Focus for a set time, then take a break</p>
+                </div>
+              </div>
+
+              <div class="timer-ring-wrap">
+                <svg class="timer-ring" viewBox="0 0 120 120">
+                  <circle class="ring-bg" cx="60" cy="60" r="52"/>
+                  <circle class="ring-fill" id="ring-fill" cx="60" cy="60" r="52"/>
+                </svg>
+                <div class="timer-display"><span id="timer-min">25</span>:<span id="timer-sec">00</span></div>
+              </div>
+
+              <div class="timer-controls">
+                <button class="timer-btn reset" id="btn-timer-reset" title="Reset">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+                </button>
+                <button class="timer-btn play" id="btn-timer-play" title="Play/Pause">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" id="play-icon"><path d="M8 5v14l11-7z"/></svg>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" id="pause-icon" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                </button>
+              </div>
+
+              <!-- H : M : S duration inputs -->
+              <div class="timer-hms-wrap">
+                <label class="form-label" style="text-align:center;display:block;margin-bottom:.6rem">Set Duration</label>
+                <div class="timer-hms-row">
+                  <div class="timer-hms-field">
+                    <input type="number" id="timer-h" class="timer-hms-input" value="0" min="0" max="23" placeholder="0">
+                    <span class="timer-hms-label">h</span>
+                  </div>
+                  <span class="timer-hms-sep">:</span>
+                  <div class="timer-hms-field">
+                    <input type="number" id="timer-m" class="timer-hms-input" value="25" min="0" max="59" placeholder="0">
+                    <span class="timer-hms-label">m</span>
+                  </div>
+                  <span class="timer-hms-sep">:</span>
+                  <div class="timer-hms-field">
+                    <input type="number" id="timer-s" class="timer-hms-input" value="0" min="0" max="59" placeholder="0">
+                    <span class="timer-hms-label">s</span>
+                  </div>
+                  <button class="btn-set-schedule" id="btn-set-timer" style="padding:.6rem 1.1rem">Set</button>
+                </div>
+              </div>
+
+              <!-- Repeat alarm toggle -->
+              <div class="timer-repeat-row">
+                <label class="repeat-toggle-label">
+                  <input type="checkbox" id="timer-repeat" class="repeat-checkbox">
+                  <span class="repeat-toggle-track"><span class="repeat-toggle-thumb"></span></span>
+                  <span class="repeat-label-text">🔁 Repeat alarm when done</span>
+                </label>
+                <span class="repeat-hint" id="repeat-hint" style="display:none">Alarm will ring every <span id="repeat-interval-display">25 min</span> until stopped</span>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TRACKER -->
+      <section class="tab-panel" id="panel-tracker" role="tabpanel">
+        <div class="panel-inner">
+          <div class="section-title-row">
+            <h2 class="section-title">Tracker</h2>
+            <p class="section-subtitle">Track your physical productivity and nutrition!</p>
+          </div>
+          <div class="subtabs-bar">
+            <button class="subtab-btn active" data-subtab="activity">🏃 Activity Tracker</button>
+            <button class="subtab-btn" data-subtab="calories">🍎 Calorie Tracker</button>
+          </div>
+
+          <!-- ACTIVITY -->
+          <div class="subtab-panel active" id="subtab-activity">
+            <div class="tracker-form-card">
+              <div class="tform-grid">
+                <div class="form-group">
+                  <label class="form-label">Activity Type</label>
+                  <select id="activity-type" class="form-input">
+                    <option value="exercise">🏃 Exercise</option>
+                    <option value="study">📚 Study Time</option>
+                    <option value="sleep">😴 Sleep</option>
+                    <option value="water">💧 Water</option>
+                    <option value="breaks">☕ Breaks Taken</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Value <span id="activity-unit-label" style="font-weight:400;color:var(--sage);text-transform:none;letter-spacing:0">(minutes)</span></label>
+                  <input type="number" id="activity-value" class="form-input" placeholder="Enter value" min="0" step="0.5">
+                  <span id="activity-max-hint" style="font-size:.72rem;color:var(--muted);margin-top:.25rem;display:none">Max 24 hours/day</span>
+                </div>
+              </div>
+              <button class="btn-primary" style="width:100%;margin-top:.75rem" id="btn-log-activity">+ Log Activity</button>
+            </div>
+            <div class="tracker-section">
+              <h3 class="tracker-section-title">Today's Progress <span class="today-label" id="tracker-today"></span></h3>
+              <div class="today-stats-grid">
+                <div class="today-stat-card orange"><span class="tsc-icon">🏃</span><span class="tsc-val" id="tsc-exercise">0</span><span class="tsc-label">Exercise</span></div>
+                <div class="today-stat-card purple"><span class="tsc-icon">📚</span><span class="tsc-val" id="tsc-study">0</span><span class="tsc-label">Study hrs</span></div>
+                <div class="today-stat-card pink"><span class="tsc-icon">😴</span><span class="tsc-val" id="tsc-sleep">0</span><span class="tsc-label">Sleep hrs</span></div>
+                <div class="today-stat-card cyan"><span class="tsc-icon">💧</span><span class="tsc-val" id="tsc-water">0</span><span class="tsc-label">Water</span></div>
+                <div class="today-stat-card green"><span class="tsc-icon">☕</span><span class="tsc-val" id="tsc-breaks">0</span><span class="tsc-label">Breaks</span></div>
+              </div>
+            </div>
+            <div class="tracker-section">
+              <h3 class="tracker-section-title">📈 Today's Activity Breakdown</h3>
+              <div class="pie-chart-wrap">
+                <canvas id="weekly-chart" width="220" height="220"></canvas>
+                <div class="pie-center-label" id="pie-center-label">
+                  <span class="pie-center-val" id="pie-center-val">—</span>
+                  <span class="pie-center-sub" id="pie-center-sub">tap a slice</span>
+                </div>
+              </div>
+              <div class="chart-legend">
+                <span class="legend-item"><span class="legend-dot" style="background:#f97316"></span>Exercise</span>
+                <span class="legend-item"><span class="legend-dot" style="background:#8b5cf6"></span>Study</span>
+                <span class="legend-item"><span class="legend-dot" style="background:#ec4899"></span>Sleep</span>
+                <span class="legend-item"><span class="legend-dot" style="background:#06b6d4"></span>Water</span>
+                <span class="legend-item"><span class="legend-dot" style="background:#10b981"></span>Breaks</span>
+              </div>
+              <div class="pie-pct-grid" id="pie-pct-grid"></div>
+            </div>
+            <div class="tracker-section">
+              <h3 class="tracker-section-title">📊 This Week vs Last Week</h3>
+              <div class="weekly-results-grid">
+                <div class="wr-card"><div class="wr-header"><span class="wr-icon">🏃</span><span>Exercise</span></div><p class="wr-label">This week</p><p class="wr-val" id="wr-ex-cur">0 min</p><p class="wr-label">Last week</p><p class="wr-prev" id="wr-ex-prev">0 min</p><p class="wr-change" id="wr-ex-change">—</p></div>
+                <div class="wr-card"><div class="wr-header"><span class="wr-icon">📚</span><span>Study Time</span></div><p class="wr-label">This week</p><p class="wr-val" id="wr-st-cur">0 hrs</p><p class="wr-label">Last week</p><p class="wr-prev" id="wr-st-prev">0 hrs</p><p class="wr-change" id="wr-st-change">—</p></div>
+                <div class="wr-card"><div class="wr-header"><span class="wr-icon">😴</span><span>Sleep</span></div><p class="wr-label">This week</p><p class="wr-val" id="wr-sl-cur">0 hrs</p><p class="wr-label">Last week</p><p class="wr-prev" id="wr-sl-prev">0 hrs</p><p class="wr-change" id="wr-sl-change">—</p></div>
+              </div>
+              <div class="wr-summary" id="wr-summary">📝 Start logging activities to see your weekly progress!</div>
+            </div>
+            <div class="tracker-section">
+              <h3 class="tracker-section-title">📉 7-Day Average</h3>
+              <div class="avg-list">
+                <div class="avg-item"><span class="avg-icon">🏃</span><span class="avg-name">Exercise</span><div class="avg-right"><span class="avg-val" id="avg-exercise">0</span><span class="avg-sub">avg/day</span></div></div>
+                <div class="avg-item"><span class="avg-icon">📚</span><span class="avg-name">Study Time</span><div class="avg-right"><span class="avg-val" id="avg-study">0</span><span class="avg-sub">avg/day</span></div></div>
+                <div class="avg-item"><span class="avg-icon">😴</span><span class="avg-name">Sleep</span><div class="avg-right"><span class="avg-val" id="avg-sleep">0</span><span class="avg-sub">avg/day</span></div></div>
+                <div class="avg-item"><span class="avg-icon">💧</span><span class="avg-name">Water</span><div class="avg-right"><span class="avg-val" id="avg-water">0</span><span class="avg-sub">avg/day</span></div></div>
+                <div class="avg-item"><span class="avg-icon">☕</span><span class="avg-name">Breaks</span><div class="avg-right"><span class="avg-val" id="avg-breaks">0</span><span class="avg-sub">avg/day</span></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- CALORIES -->
+          <div class="subtab-panel" id="subtab-calories">
+
+            <!-- ✨ CALORIE CALCULATOR -->
+            <div class="cal-calc-card">
+              <button class="cal-calc-toggle" id="btn-calc-toggle" aria-expanded="false">
+                <span class="cal-calc-toggle-left">
+                  <span class="cal-calc-icon">🧮</span>
+                  <span>
+                    <span class="cal-calc-title">Calorie Calculator</span>
+                    <span class="cal-calc-sub">Calculate your daily needs using TDEE</span>
+                  </span>
+                </span>
+                <svg class="cal-calc-chevron" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+              </button>
+
+              <div class="cal-calc-body" id="cal-calc-body">
+                <div class="cal-calc-form">
+                  <div class="cal-calc-grid">
+                    <div class="form-group">
+                      <label class="form-label">Age</label>
+                      <div class="input-unit-wrap"><input type="number" id="calc-age" class="form-input" placeholder="e.g. 20" min="10" max="100"><span class="input-unit">yrs</span></div>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">Sex</label>
+                      <select id="calc-sex" class="form-input">
+                        <option value="male">♂ Male</option>
+                        <option value="female">♀ Female</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">Height</label>
+                      <div style="display:flex;gap:.4rem">
+                        <div class="input-unit-wrap"><input type="number" id="calc-height-cm" class="form-input" placeholder="cm" min="100" max="250"><span class="input-unit">cm</span></div>
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">Weight</label>
+                      <div class="input-unit-wrap"><input type="number" id="calc-weight" class="form-input" placeholder="e.g. 65" min="30" max="300"><span class="input-unit">kg</span></div>
+                    </div>
+                  </div>
+
+                  <div class="form-group" style="margin-top:.75rem">
+                    <label class="form-label">Activity Level</label>
+                    <select id="calc-activity" class="form-input">
+                      <option value="1.2">🛋️ Sedentary — little or no exercise</option>
+                      <option value="1.375">🚶 Lightly active — 1–3 days/week</option>
+                      <option value="1.55" selected>🏃 Moderately active — 3–5 days/week</option>
+                      <option value="1.725">💪 Very active — 6–7 days/week</option>
+                      <option value="1.9">🔥 Extra active — physical job or 2x/day training</option>
+                    </select>
+                  </div>
+
+                  <div class="form-group" style="margin-top:.75rem">
+                    <label class="form-label">Goal</label>
+                    <div class="cal-goal-pills" id="calc-goal-pills">
+                      <button class="goal-pill" data-goal="loss">⬇️ Lose weight</button>
+                      <button class="goal-pill active" data-goal="maintain">⚖️ Maintain</button>
+                      <button class="goal-pill" data-goal="gain">⬆️ Gain weight</button>
+                    </div>
+                  </div>
+
+                  <button class="btn-calc" id="btn-run-calc">Calculate My Calories</button>
+                </div>
+
+                <!-- Result panel -->
+                <div class="cal-calc-result" id="cal-calc-result" style="display:none">
+                  <div class="cal-result-header">
+                    <div class="cal-result-main">
+                      <span class="cal-result-label">Your recommended daily intake</span>
+                      <span class="cal-result-number" id="calc-result-kcal">—</span>
+                      <span class="cal-result-unit">calories / day</span>
+                    </div>
+                  </div>
+                  <div class="cal-result-breakdown" id="calc-breakdown"></div>
+                  <div class="cal-result-macros" id="calc-macros"></div>
+                  <button class="btn-use-result" id="btn-use-result">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                    Use this as my daily goal
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Daily Goal (existing) -->
+            <div class="tracker-form-card">
+              <label class="form-label" style="display:block;margin-bottom:.4rem">Daily Calorie Goal</label>
+              <div style="display:flex;gap:.6rem;align-items:center">
+                <input type="number" id="calorie-goal" class="form-input" value="2000" min="1200" max="5000" style="max-width:130px">
+                <span style="font-size:.85rem;color:var(--muted)">calories/day</span>
+              </div>
+            </div>
+            <div class="calorie-summary-card">
+              <div class="cal-summary-top">
+                <span style="font-size:2.5rem">🍎</span>
+                <div>
+                  <h3 style="font-family:'Lora',serif;font-size:1rem;margin-bottom:.2rem">Today's Calories</h3>
+                  <div class="cal-fraction"><span id="cal-today">0</span> / <span id="cal-goal-display">2000</span></div>
+                  <div class="cal-remaining" id="cal-remaining">2000 calories remaining</div>
+                </div>
+              </div>
+              <div class="cal-bar-bg"><div class="cal-bar-fill" id="cal-bar-fill"></div></div>
+            </div>
+            <div class="tracker-form-card">
+              <h3 class="tracker-card-title">🍽️ Log Meal</h3>
+              <div class="tform-grid">
+                <div class="form-group">
+                  <label class="form-label">Meal Name</label>
+                  <input type="text" id="meal-name" class="form-input" placeholder="e.g. Breakfast, Lunch, Snack">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Calories</label>
+                  <input type="number" id="calorie-amount" class="form-input" placeholder="Enter calories" min="0">
+                </div>
+              </div>
+              <button class="btn-primary" style="width:100%;margin-top:.75rem" id="btn-log-calorie">+ Log Calories</button>
+            </div>
+            <div class="cal-recs-card" id="cal-recs-card">
+              <h3 class="tracker-card-title">🍏 Nutritional Recommendations</h3>
+              <p class="cal-recs-msg" id="cal-recs-msg"></p>
+              <p class="cal-recs-sub">What to eat:</p>
+              <div id="cal-foods-list"></div>
+              <div id="cal-avoid-section" style="display:none">
+                <p class="cal-recs-sub red" style="margin-top:.75rem">What to avoid:</p>
+                <div id="cal-avoid-list"></div>
+              </div>
+            </div>
+            <div class="tracker-section">
+              <h3 class="tracker-section-title">Today's Meals</h3>
+              <div id="meals-list">
+                <div class="tracker-empty"><span style="font-size:2rem">🍽️</span><p>No meals logged today.</p></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <div class="toast" id="toast" role="alert" aria-live="polite"></div>
+  <div class="alarm-notifications" id="alarm-notifications"></div>
+
+  <script type="module" src="scripts/dashboard.js"></script>
+
+</body>
+</html>
