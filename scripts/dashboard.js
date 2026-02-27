@@ -104,6 +104,7 @@ onAuthStateChanged(auth, user => {
   registerFCMToken();
   recoverTimerSession();
   initializeGradioChat();
+  initTimerHistory();
 });
 $("btn-logout").addEventListener("click", async () => {
   await signOut(auth);
@@ -267,6 +268,7 @@ initSubtabs("panel-tracker");
 
 // TTS state — persisted in localStorage
 let ttsEnabled = localStorage.getItem("haven_tts") === "true";
+console.log("🔊 TTS initialized from localStorage:", ttsEnabled, "(raw value:", localStorage.getItem("haven_tts"), ")");
 
 // Track currently playing audio so we can stop it
 let ttsAudio = null;
@@ -424,9 +426,13 @@ function updateTTSButton() {
         <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
       </svg>
       <span>TTS On</span>`;
-    btn.style.background = "var(--sage)";
-    btn.style.color = "white";
-    btn.style.borderColor = "var(--sage)";
+    btn.style.cssText = `
+      all:unset; cursor:pointer; display:flex; align-items:center; gap:.3rem;
+      font-family:'DM Sans',sans-serif; font-size:.75rem; font-weight:500;
+      color:white !important; padding:.35rem .75rem;
+      border:1px solid var(--sage) !important; border-radius:var(--radius-pill);
+      background:var(--sage) !important; transition:all .2s ease; white-space:nowrap; flex-shrink:0;
+    `;
   } else {
     btn.title = "Text-to-speech OFF — click to turn on";
     btn.setAttribute("aria-pressed", "false");
@@ -435,15 +441,24 @@ function updateTTSButton() {
         <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
       </svg>
       <span>TTS Off</span>`;
-    btn.style.background = "white";
-    btn.style.color = "var(--muted)";
-    btn.style.borderColor = "#e2e2e2";
+    btn.style.cssText = `
+      all:unset; cursor:pointer; display:flex; align-items:center; gap:.3rem;
+      font-family:'DM Sans',sans-serif; font-size:.75rem; font-weight:500;
+      color:var(--muted) !important; padding:.35rem .75rem;
+      border:1px solid #e2e2e2 !important; border-radius:var(--radius-pill);
+      background:white !important; transition:all .2s ease; white-space:nowrap; flex-shrink:0;
+    `;
   }
 }
 
 function toggleTTS() {
+  // Toggle the state
   ttsEnabled = !ttsEnabled;
-  localStorage.setItem("haven_tts", ttsEnabled);
+  
+  // Save to localStorage as a string (important!)
+  localStorage.setItem("haven_tts", String(ttsEnabled));
+  
+  console.log("🔊 TTS toggled to:", ttsEnabled);
 
   if (!ttsEnabled) {
     stopSpeaking();
@@ -454,6 +469,7 @@ function toggleTTS() {
     speakText("Text to speech is now on. I'll read Haven's responses aloud.");
   }
 
+  // Update button UI immediately
   updateTTSButton();
 }
 
@@ -551,12 +567,45 @@ async function initializeGradioChat() {
   await loadChatHistoryFromFirebase();
   renderChatHistoryUI();
 
-  // Wire up buttons
-  const clearBtn = $("btn-chat-clear");
-  if (clearBtn) clearBtn.addEventListener("click", clearChatHistory);
+  // Wire up buttons with robust attachment - use addEventListener only
+  const attachButtonListeners = () => {
+    const clearBtn = $("btn-chat-clear");
+    if (clearBtn && !clearBtn._hasListener) {
+      clearBtn.addEventListener("click", clearChatHistory);
+      clearBtn._hasListener = true;
+      console.log("✓ Clear button listener attached");
+    }
 
-  const ttsBtn = $("btn-tts-toggle");
-  if (ttsBtn) ttsBtn.addEventListener("click", toggleTTS);
+    const ttsBtn = $("btn-tts-toggle");
+    if (ttsBtn && !ttsBtn._hasListener) {
+      // Use addEventListener only - don't double-bind!
+      ttsBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log("🔊 TTS button clicked");
+        toggleTTS();
+      });
+      ttsBtn._hasListener = true;
+      console.log("✓ TTS button listener attached");
+    }
+
+    // Retry if buttons not found
+    if (!clearBtn || !ttsBtn) {
+      console.log("⏳ Buttons not ready, retrying in 500ms...");
+      setTimeout(attachButtonListeners, 500);
+      return;
+    }
+    
+    // One final update to make sure UI is correct
+    updateTTSButton();
+  };
+
+  // Wait for DOM to be truly ready before attaching
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", attachButtonListeners);
+  } else {
+    setTimeout(attachButtonListeners, 200);
+  }
 
   // Set initial TTS button state
   updateTTSButton();
@@ -1065,6 +1114,117 @@ async function cancelTimerSession() {
   hideTimerRecoveryBanner();
 }
 
+// ════════════════════════════
+//  TIMER HISTORY (up to 10 sessions)
+// ════════════════════════════
+const timerHistoryRef = () =>
+  collection(db, "users", currentUser.uid, "timerHistory");
+
+async function saveTimerCompletion(durationSecs) {
+  if (!currentUser) {
+    console.warn("Cannot save timer: currentUser not set");
+    return;
+  }
+  try {
+    console.log("Saving timer completion for user:", currentUser.uid);
+    // Add new timer completion
+    await addDoc(timerHistoryRef(), {
+      durationSecs,
+      completedAt: Date.now(),
+      formattedTime: formatDuration(durationSecs)
+    });
+    console.log("✓ Timer saved successfully");
+    
+    // Keep only last 10 entries (with separate error handling)
+    try {
+      const snap = await getDocs(query(timerHistoryRef(), orderBy("completedAt", "asc")));
+      if (snap.size > 10) {
+        const docsToDelete = snap.docs.slice(0, snap.size - 10);
+        for (const doc of docsToDelete) {
+          await deleteDoc(doc.ref);
+        }
+      }
+    } catch(cleanupError) {
+      console.warn("Cleanup error (non-critical):", cleanupError.message);
+    }
+    
+    // Refresh the display in background (don't await, don't block)
+    loadAndDisplayTimerHistory().catch(e => console.warn("History refresh failed:", e.message));
+  } catch(e) {
+    console.error("🔴 Timer history save error:", e.code, e.message);
+    if (e.code === "permission-denied") {
+      showToast("Timer saved locally (cloud sync pending)", "warning");
+    }
+  }
+}
+
+function formatDuration(secs) {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  const parts = [];
+  if (h > 0) parts.push(`${h}h`);
+  if (m > 0) parts.push(`${m}m`);
+  if (s > 0) parts.push(`${s}s`);
+  return parts.join(" ") || "0s";
+}
+
+async function loadAndDisplayTimerHistory() {
+  if (!currentUser) {
+    console.warn("Cannot load timer history: currentUser not set");
+    return;
+  }
+  try {
+    console.log("Loading timer history for user:", currentUser.uid);
+    const snap = await getDocs(query(
+      timerHistoryRef(),
+      orderBy("completedAt", "desc")
+    ));
+    
+    const historyContainer = $("timer-history-list");
+    if (!historyContainer) {
+      console.log("Timer history container not found");
+      return;
+    }
+    
+    if (snap.empty) {
+      historyContainer.innerHTML = '<p style="font-size:.85rem; color:var(--muted); padding:.5rem;">No previous timers yet. Complete your first session!</p>';
+      return;
+    }
+    
+    let html = '<div style="font-size:.8rem; color:var(--muted); margin-bottom:.5rem;">Last 10 sessions:</div>';
+    snap.docs.forEach((doc, idx) => {
+      const data = doc.data();
+      const date = new Date(data.completedAt).toLocaleDateString([], { month: "short", day: "numeric" });
+      const time = new Date(data.completedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      html += `
+        <div style="padding:.4rem .5rem; border-radius:.5rem; background:rgba(147,51,234,0.05); margin-bottom:.3rem; display:flex; justify-content:space-between; align-items:center; font-size:.8rem;">
+          <span>#${snap.size - idx}: ${data.formattedTime}</span>
+          <span style="color:var(--muted);">${date} ${time}</span>
+        </div>
+      `;
+    });
+    
+    historyContainer.innerHTML = html;
+    console.log("✓ Timer history loaded:", snap.size, "entries");
+  } catch(e) {
+    console.error("🔴 Timer history load error:", e.code, e.message);
+    const historyContainer = $("timer-history-list");
+    if (historyContainer) {
+      historyContainer.innerHTML = `<p style="font-size:.8rem; color:#d76969; padding:.5rem;">History unavailable (${e.code})</p>`;
+    }
+  }
+}
+
+// Load timer history on initialization
+async function initTimerHistory() {
+  if (currentUser) {
+    await new Promise(resolve => setTimeout(resolve, 500)); // Wait for DOM
+    await loadAndDisplayTimerHistory();
+  }
+}
+
+
 async function recoverTimerSession() {
   if (!currentUser) return;
   try {
@@ -1167,6 +1327,8 @@ function startTimer() {
           emailSubject: "StudyHaven: Timer Complete",
           emailBody: "Your study timer just finished! Next repeat cycle starting. 🌿"
         });
+        // Save completion in background (don't wait for it)
+        saveTimerCompletion(timerTotal);
         setTimeout(() => {
           if ($("timer-repeat").checked) startTimer();
         }, 1500);
@@ -1180,6 +1342,8 @@ function startTimer() {
           emailSubject: "StudyHaven: Timer Complete",
           emailBody: "Your study timer just finished! Time to take a well-deserved break. 🌿"
         });
+        // Save completion in background (don't wait for it)
+        saveTimerCompletion(timerTotal);
       }
     }
   }, 1000);
