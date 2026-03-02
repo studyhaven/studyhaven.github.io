@@ -105,6 +105,7 @@ onAuthStateChanged(auth, user => {
   recoverTimerSession();
   initializeGradioChat();
   initTimerHistory();
+  loadSwHistory();
 });
 $("btn-logout").addEventListener("click", async () => {
   await signOut(auth);
@@ -284,14 +285,21 @@ function stopSpeaking() {
   if ("speechSynthesis" in window) window.speechSynthesis.cancel();
 }
 
+// ── Voice gender helper ──
+function getSelectedVoice() {
+  const el = document.querySelector('input[name="tts-voice"]:checked');
+  return el ? el.value : "female";
+}
+
 // ── Server-side TTS via Kokoro ──
 async function speakWithServer(text) {
   try {
-    // POST to /tts — send the text, get back an event_id
+    const voiceGender = getSelectedVoice();
+    // POST to /tts — send the text and voice gender, get back an event_id
     const postRes = await fetch(`${HAVEN_SPACE}/gradio_api/call/tts`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ data: [text] }),
+      body: JSON.stringify({ data: [text, voiceGender] }),
     });
 
     if (!postRes.ok) throw new Error(`TTS POST failed: ${postRes.status}`);
@@ -417,6 +425,8 @@ async function speakText(text) {
 function updateTTSButton() {
   const btn = $("btn-tts-toggle");
   if (!btn) return;
+  const voiceWrap = document.getElementById("voice-toggle-wrap");
+  if (voiceWrap) voiceWrap.classList.toggle("visible", ttsEnabled);
 
   if (ttsEnabled) {
     btn.title = "Text-to-speech ON — click to turn off";
@@ -460,10 +470,13 @@ function toggleTTS() {
   
   console.log("🔊 TTS toggled to:", ttsEnabled);
 
+  const voiceWrap = document.getElementById("voice-toggle-wrap");
   if (!ttsEnabled) {
     stopSpeaking();
+    if (voiceWrap) voiceWrap.classList.remove("visible");
     showToast("Text-to-speech off", "");
   } else {
+    if (voiceWrap) voiceWrap.classList.add("visible");
     showToast("Text-to-speech on 🔊", "success");
     // Speak a short demo so the user knows it's working
     speakText("Text to speech is now on. I'll read Haven's responses aloud.");
@@ -1398,6 +1411,152 @@ setInterval(() => {
   });
   if (firedAlarms.size > 200) firedAlarms.clear();
 }, 5000);
+
+// ════════════════════════════
+//  STOPWATCH
+// ════════════════════════════
+let swRunning = false, swElapsed = 0, swStartedAt = 0, swRafId = null;
+
+const swHistoryRef = () => collection(db, "users", currentUser.uid, "stopwatchHistory");
+
+function swFormat(ms) {
+  const totalSec = Math.floor(ms / 1000);
+  const cents    = Math.floor((ms % 1000) / 10);
+  const h  = Math.floor(totalSec / 3600);
+  const m  = Math.floor((totalSec % 3600) / 60);
+  const s  = totalSec % 60;
+  const pad2 = n => String(n).padStart(2, "0");
+  const timeStr = h > 0 ? `${pad2(h)}:${pad2(m)}:${pad2(s)}` : `${pad2(m)}:${pad2(s)}`;
+  return { timeStr, cents: pad2(cents) };
+}
+
+function swRender() {
+  const live = swRunning ? swElapsed + (Date.now() - swStartedAt) : swElapsed;
+  const { timeStr, cents } = swFormat(live);
+  $("sw-display").childNodes[0].textContent = timeStr;
+  $("sw-ms").textContent = "." + cents;
+  if (swRunning) swRafId = requestAnimationFrame(swRender);
+}
+
+function swUpdateStatus(state) {
+  const el = $("sw-status");
+  if (!el) return;
+  el.className = "sw-status" + (state === "running" ? " running" : state === "paused" ? " paused" : "");
+  el.textContent = state === "running" ? "Running…" : state === "paused" ? "Paused" : "Ready";
+}
+
+function swStart() {
+  swStartedAt = Date.now();
+  swRunning = true;
+  $("sw-play-icon").style.display = "none";
+  $("sw-pause-icon").style.display = "block";
+  swUpdateStatus("running");
+  swRafId = requestAnimationFrame(swRender);
+}
+
+function swPause() {
+  swElapsed += Date.now() - swStartedAt;
+  swRunning = false;
+  if (swRafId) { cancelAnimationFrame(swRafId); swRafId = null; }
+  $("sw-play-icon").style.display = "block";
+  $("sw-pause-icon").style.display = "none";
+  swUpdateStatus(swElapsed > 0 ? "paused" : "");
+  swRender();
+}
+
+async function swReset() {
+  if (swRunning) swPause();
+  swElapsed = 0;
+  swRender();
+  swUpdateStatus("");
+  $("sw-label").value = "";
+}
+
+async function swStop() {
+  if (swRunning) swPause();
+  if (swElapsed === 0) { showToast("Nothing to save — run the stopwatch first.", "error"); return; }
+  const label = ($("sw-label").value || "").trim() || "Untimed session";
+  const { timeStr, cents } = swFormat(swElapsed);
+  const displayTime = timeStr + "." + cents;
+  const savedMs = swElapsed;
+  swElapsed = 0;
+  swRender();
+  swUpdateStatus("");
+  $("sw-label").value = "";
+  try {
+    await addDoc(swHistoryRef(), {
+      label,
+      durationMs: savedMs,
+      displayTime,
+      savedAt: Date.now(),
+    });
+    showToast("Session saved! ✓", "success");
+    loadSwHistory();
+  } catch(e) {
+    console.error("Stopwatch save error:", e);
+    showToast("Could not save session.", "error");
+  }
+}
+
+async function swDeleteRecord(id) {
+  try {
+    await deleteDoc(doc(db, "users", currentUser.uid, "stopwatchHistory", id));
+    loadSwHistory();
+    showToast("Record deleted.", "");
+  } catch(e) {
+    showToast("Could not delete record.", "error");
+  }
+}
+window._swDeleteRecord = swDeleteRecord;
+
+async function swClearAllHistory() {
+  if (!confirm("Clear all stopwatch history? This cannot be undone.")) return;
+  try {
+    const snap = await getDocs(swHistoryRef());
+    await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
+    loadSwHistory();
+    showToast("History cleared.", "");
+  } catch(e) {
+    showToast("Could not clear history.", "error");
+  }
+}
+
+async function loadSwHistory() {
+  const container = $("sw-history-list");
+  if (!container || !currentUser) return;
+  try {
+    const snap = await getDocs(query(swHistoryRef(), orderBy("savedAt", "desc")));
+    if (snap.empty) {
+      container.innerHTML = '<p style="font-size:.85rem;color:var(--muted);padding:.5rem .25rem">No sessions yet. Start your first session!</p>';
+      return;
+    }
+    container.innerHTML = snap.docs.map((d, idx) => {
+      const data = d.data();
+      const date = new Date(data.savedAt).toLocaleDateString([], { month:"short", day:"numeric" });
+      const time = new Date(data.savedAt).toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" });
+      return `
+        <div class="sw-record">
+          <span class="sw-record-num">#${snap.size - idx}</span>
+          <span class="sw-record-time">${data.displayTime}</span>
+          <span class="sw-record-label" title="${data.label}">${data.label}</span>
+          <span class="sw-record-date">${date} ${time}</span>
+          <button class="sw-record-del" onclick="window._swDeleteRecord('${d.id}')" title="Delete">✕</button>
+        </div>`;
+    }).join("");
+  } catch(e) {
+    console.warn("Stopwatch history load error:", e.message);
+    container.innerHTML = '<p style="font-size:.82rem;color:#d76969;padding:.5rem .25rem">History unavailable.</p>';
+  }
+}
+
+// Wire up stopwatch controls
+$("btn-sw-play").addEventListener("click", () => swRunning ? swPause() : swStart());
+$("btn-sw-reset").addEventListener("click", swReset);
+$("btn-sw-stop").addEventListener("click", swStop);
+$("btn-sw-clear-history").addEventListener("click", swClearAllHistory);
+
+// Initial render (show 00:00.00)
+swRender();
 
 // ════════════════════════════
 //  TRACKER DATA

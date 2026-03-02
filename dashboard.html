@@ -471,6 +471,14 @@ img { display: block; max-width: 100%; }
 .pie-pct-val   { display:block; font-family:'Lora',serif; font-size:.98rem; font-weight:600; color:var(--charcoal); }
 .pie-pct-raw   { display:block; font-size:.62rem; color:var(--muted); }
 
+/* ── Voice Gender Toggle ── */
+.voice-toggle { display:flex; background:#f3e8ff; border-radius:var(--radius-pill); padding:.25rem; gap:.2rem; flex-shrink:0; }
+.voice-toggle input[type="radio"] { display:none; }
+.voice-toggle label { padding:.3rem .75rem; border-radius:var(--radius-pill); cursor:pointer; font-family:'DM Sans',sans-serif; font-size:.75rem; font-weight:500; color:var(--muted); transition:all .2s ease; user-select:none; white-space:nowrap; }
+.voice-toggle input[type="radio"]:checked + label { background:white; color:var(--sage); box-shadow:0 1px 4px rgba(147,51,234,0.18); }
+#voice-toggle-wrap { display:none; }
+#voice-toggle-wrap.visible { display:flex; }
+
 /* ── Repeat alarm toggle ── */
 .timer-repeat-row {
   width: 100%; display: flex; flex-direction: column; align-items: center; gap: .3rem;
@@ -497,6 +505,41 @@ img { display: block; max-width: 100%; }
 .repeat-checkbox:checked + .repeat-toggle-track .repeat-toggle-thumb { transform: translateX(18px); }
 .repeat-label-text { font-size: .82rem; font-weight: 500; color: var(--charcoal); }
 .repeat-hint { font-size: .72rem; color: var(--sage); font-style: italic; }
+
+/* ── Stopwatch ── */
+.sw-card { margin:1.25rem; padding:1.5rem 1.25rem; background:var(--cream); border-radius:var(--radius); border:1px solid rgba(147,51,234,0.1); display:flex; flex-direction:column; align-items:center; gap:1.1rem; }
+.sw-header { display:flex; align-items:center; gap:.85rem; align-self:flex-start; width:100%; }
+.sw-display-wrap { display:flex; flex-direction:column; align-items:center; gap:.3rem; padding:.75rem 1.5rem; background:white; border-radius:var(--radius); border:1px solid rgba(147,51,234,0.1); box-shadow:var(--shadow-sm); width:100%; }
+.sw-display { font-family:'Lora',serif; font-size:3rem; font-weight:600; color:var(--charcoal); letter-spacing:.04em; line-height:1; }
+.sw-ms { font-size:1.6rem; color:var(--muted); font-weight:400; }
+.sw-status { font-size:.75rem; font-weight:500; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
+.sw-status.running { color:#22c55e; }
+.sw-status.paused { color:#f59e0b; }
+.sw-label-row { width:100%; }
+.sw-controls { display:flex; align-items:center; gap:1.1rem; }
+.sw-btn { all:unset; cursor:pointer; display:flex !important; align-items:center; justify-content:center; transition:background var(--transition),transform .1s; border-radius:50%; flex-shrink:0; }
+.sw-btn.sw-play { width:58px; height:58px; background:var(--sage); color:white; box-shadow:0 4px 16px rgba(147,51,234,0.3); }
+.sw-btn.sw-play:hover { background:var(--sage-dark); }
+.sw-btn.sw-play:active { transform:scale(.95); }
+.sw-btn.sw-reset { width:42px; height:42px; background:white; color:var(--muted); border:1.5px solid #e2e2e2; }
+.sw-btn.sw-reset:hover { border-color:var(--sage-light); color:var(--sage); }
+.sw-btn.sw-reset:active { transform:scale(.95); }
+.sw-btn.sw-stop { width:42px; height:42px; background:white; color:#ef4444; border:1.5px solid #fca5a5; }
+.sw-btn.sw-stop:hover { background:#fef2f2; border-color:#ef4444; }
+.sw-btn.sw-stop:active { transform:scale(.95); }
+.sw-history-wrap { width:100%; border-top:1px solid rgba(147,51,234,0.08); padding-top:1rem; }
+.sw-history-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:.65rem; }
+.sw-history-title { font-family:'Lora',serif; font-size:.95rem; font-weight:600; color:var(--charcoal); }
+.sw-clear-btn { all:unset; font-size:.75rem; color:var(--muted); cursor:pointer; padding:.2rem .55rem; border-radius:var(--radius-pill); border:1px solid #e2e2e2; transition:all var(--transition); }
+.sw-clear-btn:hover { color:#ef4444; border-color:#ef4444; background:#fef2f2; }
+.sw-history-list { max-height:260px; overflow-y:auto; display:flex; flex-direction:column; gap:.4rem; scrollbar-width:thin; scrollbar-color:var(--sage-light) transparent; }
+.sw-record { display:flex; align-items:center; gap:.65rem; padding:.6rem .8rem; background:white; border-radius:10px; border:1px solid rgba(147,51,234,0.09); animation:fadeUp .22s ease; }
+.sw-record-num { font-size:.72rem; color:var(--muted); min-width:1.6rem; text-align:right; }
+.sw-record-time { font-family:'Lora',serif; font-size:1rem; font-weight:600; color:var(--sage); min-width:5.5rem; }
+.sw-record-label { flex:1; font-size:.85rem; color:var(--charcoal); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sw-record-date { font-size:.72rem; color:var(--muted); white-space:nowrap; }
+.sw-record-del { all:unset; cursor:pointer; color:#d0d0d0; font-size:.8rem; padding:.15rem; border-radius:4px; transition:color var(--transition); flex-shrink:0; }
+.sw-record-del:hover { color:#ef4444; }
 
 /* ── Focus visible ── */
 :focus-visible { outline:2px solid var(--sage); outline-offset:3px; border-radius:4px; }
@@ -570,6 +613,13 @@ img { display: block; max-width: 100%; }
               </svg>
               <span>TTS Off</span>
             </button>
+            <!-- Voice Toggle -->
+            <div class="voice-toggle" id="voice-toggle-wrap">
+              <input type="radio" name="tts-voice" id="voice-female" value="female" checked />
+              <label for="voice-female">👩 Female</label>
+              <input type="radio" name="tts-voice" id="voice-male" value="male" />
+              <label for="voice-male">👨 Male</label>
+            </div>
             <!-- Clear Chat -->
             <button
               id="btn-chat-clear"
@@ -613,6 +663,7 @@ img { display: block; max-width: 100%; }
           <div class="subtabs-bar">
             <button class="subtab-btn active" data-subtab="tm-tasks">📋 Tasks</button>
             <button class="subtab-btn" data-subtab="tm-timer">⏱️ Timer</button>
+            <button class="subtab-btn" data-subtab="tm-stopwatch">🕐 Stopwatch</button>
           </div>
 
           <!-- TASKS -->
@@ -737,6 +788,57 @@ img { display: block; max-width: 100%; }
 
             </div>
           </div>
+
+          <!-- STOPWATCH -->
+          <div class="subtab-panel" id="subtab-tm-stopwatch">
+            <div class="sw-card">
+              <div class="sw-header">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" style="color:var(--sage)"><path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
+                <div>
+                  <h3 style="font-family:'Lora',serif;font-size:1.1rem;margin:0">Stopwatch</h3>
+                  <p style="font-size:.78rem;color:var(--muted)">Track and log timed sessions with labels</p>
+                </div>
+              </div>
+
+              <!-- Display -->
+              <div class="sw-display-wrap">
+                <div class="sw-display" id="sw-display">00:00<span class="sw-ms" id="sw-ms">.00</span></div>
+                <div class="sw-status" id="sw-status">Ready</div>
+              </div>
+
+              <!-- Session label -->
+              <div class="sw-label-row">
+                <input type="text" id="sw-label" class="form-input" placeholder="Session label (optional, e.g. &quot;Math review&quot;)" maxlength="60" style="font-size:.88rem">
+              </div>
+
+              <!-- Controls -->
+              <div class="sw-controls">
+                <button class="sw-btn sw-reset" id="btn-sw-reset" title="Reset (discard)">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+                </button>
+                <button class="sw-btn sw-play" id="btn-sw-play" title="Start">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" id="sw-play-icon"><path d="M8 5v14l11-7z"/></svg>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" id="sw-pause-icon" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                </button>
+                <button class="sw-btn sw-stop" id="btn-sw-stop" title="Stop &amp; save">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+                </button>
+              </div>
+
+              <!-- History -->
+              <div class="sw-history-wrap">
+                <div class="sw-history-header">
+                  <span class="sw-history-title">📋 Session History</span>
+                  <button class="sw-clear-btn" id="btn-sw-clear-history" title="Clear all history">Clear all</button>
+                </div>
+                <div class="sw-history-list" id="sw-history-list">
+                  <p style="font-size:.85rem;color:var(--muted);padding:.5rem .25rem">No sessions yet. Start your first session!</p>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
         </div>
       </section>
 
@@ -967,7 +1069,7 @@ img { display: block; max-width: 100%; }
   <div class="toast" id="toast" role="alert" aria-live="polite"></div>
   <div class="alarm-notifications" id="alarm-notifications"></div>
 
-  <script type="module" src="scripts/dashboard.js?v=2026-02-27"></script>
+  <script type="module" src="scripts/dashboard.js?v=2026-03-02"></script>
 
 </body>
 </html>

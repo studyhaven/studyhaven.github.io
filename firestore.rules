@@ -47,6 +47,12 @@ service cloud.firestore {
       match /timerHistory/{sessionId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
+
+      // ── Stopwatch History ──
+      // Saved stopwatch sessions with labels and timestamps
+      match /stopwatchHistory/{sessionId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
     // Deny everything else
